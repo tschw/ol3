@@ -264,11 +264,11 @@ ol.webglnew.WebGL.prototype = {
 
             var typeInfo = this.GL_TYPE_INFO[glType];
 
-            var elemSize = typeInfo.size;
+            var elemSize = elementSize(glType);
             if (recordSize % elemSize != 0) 
                 throw name + 'Stride breaks WebGL layout constraints.';
 
-            result[name + 'View'] = typeInfo.view.call(
+            result[name + 'View'] = typedArayView(glType).call(
                     null, result.rawBytes, offset, vertexCount);
 
             result[name + 'Stride'] = recordSize / elemSize;
@@ -316,15 +316,45 @@ ol.webglnew.WebGL.prototype = {
      * @return {Number} Number of bytes.
      */
     attributeByteSize: function(glActiveInfo) {
-        return glActiveInfo.size * this.GL_TYPE_INFO[glActiveInfo.type].size;
+        return glActiveInfo.size * this.elementSize(glActiveInfo.type);
     },
 
     /**
-     * Size / JS-view types by GL type constant.
-     * @const
-     * @public
+     * Provide typed array view type for a specific GL type constant.
+     *
+     * @param {Number} glTypeConstant GL type constant.
+     * @return {Object} Typed array view.
      */
-    GL_TYPE_INFO: { },
+    typedArrayView: function(glTypeConstant) {
+
+        switch (glTypeConstant) {
+        case goog.webgl.BYTE:           return Int8Array;
+        case goog.webgl.UNSIGNED_BYTE:  return Uint8Array;
+        case goog.webgl.SHORT:          return Int16Array;
+        case goog.webgl.UNSIGNED_SHORT: return Uint16Array;
+        case goog.webgl.INT:            return Int32Array;
+        case goog.webgl.UNSIGNED_INT:   return Uint32Array;
+        case goog.webgl.FLOAT:          return Float32Array;
+        }
+    },
+
+    /**
+     * Provide size in bytes for a specific GL type constant.
+     *
+     * @param {Number} glTypeConstant GL type constant.
+     * return {Number} Size in bytes.
+     */
+    elementSize: function(glTypeConstant) {
+        switch (glTypeConstant) {
+        case goog.webgl.BYTE:
+        case goog.webgl.UNSIGNED_BYTE:  return 1;
+        case goog.webgl.SHORT: 
+        case goog.webgl.UNSIGNED_SHORT: return 2;
+        case goog.webgl.INT:
+        case goog.webgl.UNSIGNED_INT:
+        case goog.webgl.FLOAT:          return 4;
+        }
+    },
 
 
     /**
@@ -354,11 +384,4 @@ ol.webglnew.WebGL.prototype = {
 
 };
 
-ol.webglnew.WebGL.prototype.GL_TYPE_INFO[goog.webgl.BYTE]             = { size: 1, view: Int8Array };
-ol.webglnew.WebGL.prototype.GL_TYPE_INFO[goog.webgl.UNSIGNED_BYTE]    = { size: 1, view: Uint8Array };
-ol.webglnew.WebGL.prototype.GL_TYPE_INFO[goog.webgl.SHORT]            = { size: 2, view: Int16Array };
-ol.webglnew.WebGL.prototype.GL_TYPE_INFO[goog.webgl.UNSIGNED_SHORT]   = { size: 2, view: Uint16Array };
-ol.webglnew.WebGL.prototype.GL_TYPE_INFO[goog.webgl.INT]              = { size: 4, view: Int32Array  };
-ol.webglnew.WebGL.prototype.GL_TYPE_INFO[goog.webgl.UNSIGNED_INT]     = { size: 4, view: Uint32Array };
-ol.webglnew.WebGL.prototype.GL_TYPE_INFO[goog.webgl.FLOAT]            = { size: 4, view: Float32Array };
 

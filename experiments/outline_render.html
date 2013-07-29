@@ -2,7 +2,9 @@
 <html>
     <head>
         <title>Icons Test</title>
-        <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.10.2/jquery.min.js"></script>
+        <script src="http://ajax.googleapis.com/ajax/libs/jquery/2.0.3/jquery.min.js"></script>
+        <script src="http://ajax.googleapis.com/ajax/libs/jqueryui/1.10.3/jquery-ui.min.js"></script> 
+        <link rel="stylesheet" href="http://code.jquery.com/ui/1.10.3/themes/smoothness/jquery-ui.css" />
 
         <script src="closure_base.js"></script>
         <script src="closure_mock.js"></script>
@@ -11,10 +13,11 @@
         <script src="timer.js"></script>
         <script src="timeslicer.js"></script>
 
-        <script src="main.js"></script>
+        <script src="outline_render.js"></script>
 
 
         <script id="webgl-bg-vert" type="x-shader/x-vertex">
+#version 100
 
 attribute vec2 Position;
 
@@ -23,36 +26,148 @@ void main(void) {
 }
         </script>
         <script id="webgl-bg-frag" type="x-shader/x-vertex">
+#version 100
+
+// ---- Configuration
 
 precision mediump float;
 
+// ---- Interface
+
 uniform vec2 Offset;
+uniform vec2 Scale;
+uniform mat2 Rotation;
+uniform float LineWidth;
+uniform float AntiAliasing;
+uniform int AASmoothing;
+uniform float Gamma;
+
+// ---- Implementation
+
+// ... inside.. - edge =#{ border }#= edge -|
+//              |<---+-->|<-------+-------->|  
+//              :   \|/  :       \|/        :
+//              :   /|\  :        |         :
+vec2 edgeWidth = AntiAliasing * Scale;
+//              :        :       /|\        :
+vec2 outline = LineWidth * Scale;
+//              :        :        :         :
+//              :        :        ^<--------|
+vec2 outerEdgeMin = vec2(1.0) - edgeWidth;
+//              ^<-------:--------|
+vec2 innerEdgeMin = outerEdgeMin - outline;
+//              |--------^        :
+vec2 innerEdgeMax = innerEdgeMin + edgeWidth;
+
+// When these   ^^^^^^^^^^        ^^^^^^^^^^^ two regions
+// overlap, the maximum intensity will be below 1.
+//
+// Both regions have the same width and provide the input to
+// the same monotonic function (x=0 for region start).
+// 
+// => The result will never be blow zero, and
+// => there will be no jump discontinuities.
+
+
+// Reciprocal gamma constant.
+float rcpGamma = 1.0 / Gamma;
+
+// Like 'smoothstep' but using a ramp instead of an S-curve
+vec2 clampstep(vec2 zeroAt, vec2 oneAt, vec2 x) {
+    return (clamp(x, zeroAt, oneAt) - zeroAt) / (oneAt - zeroAt);
+}
+
+// Cubic S-curve polynomial.
+float smoothpoly3(float x) {
+    return (3.0 - 2.0 * x) * x * x;
+}
+
+// Quintic S-curve polynomial.
+float smoothpoly5(float x) {
+    float x2 = x * x;
+    return (6.0 * x2  - 15.0 * x + 10.0) * x2 * x;
+}
+
 
 void main(void) {
 
-    gl_FragColor = vec4(0.0, fract((vec2(gl_FragCoord) - Offset) / 400.0), 1.0);
+    // Determine grid cell surface coordinate 0..1
+    vec2 surf = fract((Rotation * (gl_FragCoord.xy - Offset)) * Scale);
+    // for outlining polygons we'd determine fractional
+    // distance from center to edge along each axis
+
+    // Determine border intensity along the surface coordinate axes
+    vec2 border = AntiAliasing > 0.0
+            ? clampstep(innerEdgeMin, innerEdgeMax, surf)
+                - clampstep(outerEdgeMin, vec2(1.0), surf)
+            : step(innerEdgeMax, surf) - step(outerEdgeMin, surf);
+
+    float l = max(border.x, border.y);
+
+    // Omitting this check, because it breaks the size limit for D3D-
+    // based shader compilation on Windows
+    //
+    //if (AASmoothing != 0 && AntiAliasing != 0.0) {
+
+        float scale = max(1.0, AntiAliasing / LineWidth);
+        l *= scale; // temporarily go to range 0..1 if maximum is below
+
+        // Apply smoothing
+        if (AASmoothing == 1) {
+            l = smoothpoly3(l);
+        } else if (AASmoothing == 2) {
+            l = smoothpoly5(l);
+        }
+
+        l /= scale;
+    //}
+
+    // Apply gamma correction (Gamma == 1 yields identity function)
+    l = pow(l, rcpGamma); 
+
+    gl_FragColor = vec4(l, l, l, 1.0);
 }
         </script>
         <style>
-            body {
-                margin: 0;
-            }
-
-            .error {
-                border: 7px solid red;
-                padding: 0px 10px;
-                font-weight: bold;
-                color: #600;
-            }
-
-            .invisible {
-                display: none;
-            }
-
+            body { margin: 0; }
+            .invisible { display: none; }
+            .error { border: 7px solid red; padding: 0px 10px; 
+                     font-weight: bold; color: #600; }
+            #webgl-canvas { float: left; }
+            #user-interface { float: left; width: 320px; }
+            .slider, .label, select { margin: 10px 10px 10px 20px; }
+            .label { float: none; clear: left; } 
+            .slider { float: left; width: 200px; }
+            select { width: 300px; }
+            .value-display { margin: 10px 10px 0px 0px; 
+                             display: inline-block; float: right; }
         </style>
     </head>
     <body>
-        <canvas id="webgl-canvas" width="800" height="600"></canvas>
+
+        <div id="app-panel">
+            <canvas id="webgl-canvas" width="640" height="480"></canvas>
+            <div id="user-interface">
+                <div class="label">Rotation (rad,rad/s)</div>
+                <div class="slider" id="rotation-angle"></div>
+                <div class="slider" id="rotation-speed"></div>
+                <div class="label">Grid Size (pixels x,y)</div>
+                <div class="slider" id="grid-size-x"></div>
+                <div class="slider" id="grid-size-y"></div>
+                <div class="label">Line Width (pixels)</div>
+                <div class="slider" id="line-width"></div>
+                <div class="label">Anti Aliasing (pixels/interpolant)</div>
+                <div class="slider" id="anti-aliasing"></div>
+                <select id="aa-smoothing" name="aa-smoothing">
+                    <option value="0">Linear (no smoothing)</option>
+                    <option value="1" selected="selected">Cubic S-Curve (-2x^3 +3x^2)</option>
+                    <option value="2">Quintic S-Curve (6x^5 -15x^4 +10x^3)</option>
+                </select>
+                <div class="label">Gamma (of display)</div>
+                <div class="slider" id="gamma"></div>
+            </div>
+        </div>
+
         <div id="webgl-unavailable" class="error invisible">
             <h3>This browser does not support WebGL!</h3>
             <p>
