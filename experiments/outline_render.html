@@ -146,14 +146,11 @@ void main(void) {
     <body>
 
         <div id="app-panel">
-            <canvas id="webgl-canvas" width="640" height="480"></canvas>
+            <canvas id="webgl-canvas" width="512" height="512"></canvas>
             <div id="user-interface">
                 <div class="label">Rotation (rad,rad/s)</div>
                 <div class="slider" id="rotation-angle"></div>
                 <div class="slider" id="rotation-speed"></div>
-                <div class="label">Grid Size (pixels x,y)</div>
-                <div class="slider" id="grid-size-x"></div>
-                <div class="slider" id="grid-size-y"></div>
                 <div class="label">Line Width (pixels)</div>
                 <div class="slider" id="line-width"></div>
                 <div class="label">Anti Aliasing (pixels/interpolant)</div>
@@ -165,6 +162,9 @@ void main(void) {
                 </select>
                 <div class="label">Gamma (of display)</div>
                 <div class="slider" id="gamma"></div>
+                <div class="label">Grid Size (pixels x,y)</div>
+                <div class="slider" id="grid-size-x"></div>
+                <div class="slider" id="grid-size-y"></div>
             </div>
         </div>
 

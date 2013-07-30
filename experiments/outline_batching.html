@@ -1,0 +1,224 @@
+<!doctype html>
+<html>
+    <head>
+        <title>Icons Test</title>
+        <script src="http://ajax.googleapis.com/ajax/libs/jquery/2.0.3/jquery.min.js"></script>
+        <script src="http://ajax.googleapis.com/ajax/libs/jqueryui/1.10.3/jquery-ui.min.js"></script> 
+        <link rel="stylesheet" href="http://code.jquery.com/ui/1.10.3/themes/smoothness/jquery-ui.css" />
+
+        <script src="closure_base.js"></script>
+        <script src="closure_mock.js"></script>
+
+        <script src="webgl.js"></script>
+        <script src="timer.js"></script>
+        <script src="timeslicer.js"></script>
+
+        <script src="outline_batching.js"></script>
+
+
+<!--- Polygon Shaders -->
+
+
+        <script id="webgl-poly-vert" type="x-shader/x-vertex">
+#version 100
+
+// ---- Configuration
+
+precision mediump float;
+
+// ---- Interface
+
+attribute vec2 Position;
+attribute vec2 SurfaceScale;
+attribute float Control;
+
+uniform mat2 Rotation;
+
+varying vec2 Surface;
+varying vec2 Scale;
+varying float Invalidator;
+
+// ---- Implementation
+
+float removeHighbits(float x, float valueOfLowest) {
+    return x - floor(x / valueOfLowest) * valueOfLowest;
+}
+float extractHighbits(float x, float valueOfLowest) {
+    return floor(x / valueOfLowest);
+}
+
+void main(void) {
+
+    float edge = Control; 
+    Surface = vec2(extractHighbits(edge, 4.), removeHighbits(edge, 4.));
+    Scale = SurfaceScale;
+    Invalidator = max(Surface.y - 2.0, 0.0);
+    gl_Position = vec4(Rotation * Position, 0.0, 1.0);
+}
+        </script>
+
+        <script id="webgl-poly-frag" type="x-shader/x-vertex">
+// ---- Configuration
+
+precision mediump float;
+
+// ---- Interface
+
+varying vec2 Surface;
+varying vec2 Scale;
+varying float Invalidator;
+
+uniform vec4 FillColor;
+uniform vec4 StrokeColor;
+
+uniform vec4 RenderParams;
+float lineWidth = RenderParams.x;
+float antiAliasing = RenderParams.y;
+
+
+// ---- Implementation
+
+float blendCoeff(vec2 edge0, vec2 edge1, vec2 x) {
+    vec2 weight = smoothstep(edge0, edge1, x);
+    return max(weight.x, weight.y);
+}
+
+void main(void) {
+
+    if (Invalidator > 0.0) discard;
+
+    // Determine distance vector from centerpoint (1;1) surface coordinates
+    // the outer edge of the surface is located at 1
+    vec2 dist = fract(abs(Surface - vec2(1.0)));
+
+    // Determine surface coordinate thresholds:
+    //
+    // 0.0                                     1.0
+    // ... inside.. - edge =#{ border }#= edge -|
+    //              |<---+-->|<-------+-------->|  
+    //              :   \|/  :       \|/        :
+    //              :   /|\  :        |         :
+    vec2 edgeWidth = antiAliasing * Scale;
+    //              :        :       /|\        :
+    vec2 outline = lineWidth * Scale;
+    //              :        :        :         :
+    //              :        :        ^<--------|
+    vec2 outerEdgeMin = vec2(1.0) - edgeWidth;
+    //              ^<-------:--------|
+    vec2 innerEdgeMin = outerEdgeMin - outline;
+    //              |--------^
+    vec2 innerEdgeMax = innerEdgeMin + edgeWidth;
+    // When these   ^^^^^^^^^^        ^^^^^^^^^^^ two regions
+    // overlap, the maximum intensity will be below 1.
+    //
+    // Both regions have the same width and provide the input to
+    // the same monotonic function (x=0 for region start).
+    // 
+    // => The result will never be blow zero, and
+    // => there will be no jump discontinuities.
+    // => maximum luminance at min(1.0, LineWidth / AntiAliasing)
+
+    // Determine foreground color
+    vec4 color = mix(FillColor, StrokeColor, blendCoeff(innerEdgeMin, innerEdgeMax, dist));
+
+    // Adjust alpha for anti-aliasing on the outer edge
+    color.a = color.a * smoothstep(0.0, 1.0, 1.0 - blendCoeff(outerEdgeMin, vec2(1.0), dist));
+
+    // Blend against background - hopefully the WebGL implementation will
+    // linearize the color space (IOW apply gamma correction)
+    //
+    // See: http://stackoverflow.com/questions/10843321
+#if PREMULTIPLY_BY_ALPHA
+    color.rgb *= color.a;
+#endif
+    gl_FragColor = color;
+}
+        </script>
+
+<!--- Background Shaders -->
+
+        <script id="webgl-bg-vert" type="x-shader/x-vertex">
+#version 100
+
+attribute vec2 Position;
+
+void main(void) {
+    gl_Position = vec4(Position, 0.0, 1.0);
+}
+        </script>
+        <script id="webgl-bg-frag" type="x-shader/x-vertex">
+#version 100
+// ---- Configuration
+
+precision mediump float;
+
+// ---- Interface
+
+uniform vec2 Offset;
+uniform vec2 Scale;
+
+// ---- Implementation
+
+void main(void) {
+
+    vec2 surf = fract((gl_FragCoord.xy - Offset) * Scale);
+
+    float r = pow(distance(surf, vec2(1.0, 0.5)), 2.0) * 0.7;
+    float g = pow(distance(surf, vec2(0.0, 1.0)), 2.0) * 0.7;
+    float b = pow(distance(surf, vec2(0.0, 0.0)), 2.0) * 0.7;
+
+    gl_FragColor = vec4(r, g, b, 1.0);
+}
+        </script>
+
+
+        <style>
+            body { margin: 0; }
+            .invisible { display: none; }
+            .error { border: 7px solid red; padding: 0px 10px; 
+                     font-weight: bold; color: #600; }
+            #webgl-canvas { float: left; }
+            #user-interface { float: left; width: 320px; }
+            .slider, .label, select { margin: 10px 10px 10px 20px; }
+            .label { float: none; clear: left; } 
+            .slider { float: left; width: 200px; }
+            select { width: 300px; }
+            .value-display { margin: 10px 10px 0px 0px; 
+                             display: inline-block; float: right; }
+        </style>
+    </head>
+    <body>
+
+        <div id="app-panel">
+            <canvas id="webgl-canvas" width="512" height="512"></canvas>
+            <div id="user-interface">
+                <div class="label">Rotation (rad,rad/s)</div>
+                <div class="slider" id="rotation-angle"></div>
+                <div class="slider" id="rotation-speed"></div>
+                <div class="label">Line Width (pixels)</div>
+                <div class="slider" id="line-width"></div>
+                <div class="label">Anti Aliasing (pixels)</div>
+                <div class="slider" id="anti-aliasing"></div>
+                <div class="label">Grid Size (pixels x,y)</div>
+                <div class="slider" id="grid-size-x"></div>
+                <div class="slider" id="grid-size-y"></div>
+            </div>
+        </div>
+
+        <div id="webgl-unavailable" class="error invisible">
+            <h3>This browser does not support WebGL!</h3>
+            <p>
+                See <a href="http://get.webgl.org">http://get.webgl.org</a> for information on updating
+                or contact your system administrator.
+            </p>
+        </div>
+        <div id="webgl-init-failed" class="error invisible">
+            <h3> The initialization of WebGL failed.</h3>
+            <p>
+                See <a href="http://get.webgl.org/troubleshooting">http://get.webgl.org/troubleshooting</a> 
+                for information on troubleshooting or contact your system administrator.
+            </p>
+        </div>
+    </body>
+</html>
+

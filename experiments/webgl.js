@@ -156,19 +156,19 @@ ol.webglnew.WebGL.prototype = {
      * Create a buffer on the GPU of given contents or size.
      *
      * @param {any} data Argument passed to GL function 'bufferData'.
-     * @param {Number} type GL type of buffer - defaults to 'ARRAY_BUFFER'.
-     * @param {Number} usage GL usage specifiet - defaults to 'STATIC_DRAW'.
+     * @param {Number} target GL buffer target - defaults to 'ARRAY_BUFFER'.
+     * @param {Number} usage GL usage - defaults to 'STATIC_DRAW'.
      * @return {Object} GL buffer object.
      */
-    buffer: function(data, type /* = ARRAY_BUFFER */, usage /* = STATIC_DRAW */) {
+    buffer: function(data, target /* = ARRAY_BUFFER */, usage /* = STATIC_DRAW */) {
 
-        type = goog.isDef(type) ? type : goog.webgl.ARRAY_BUFFER;
+        target = goog.isDef(target) ? target : goog.webgl.ARRAY_BUFFER;
         usage = goog.isDef(usage) ? usage : goog.webgl.STATIC_DRAW;
 
         var gl = this.context;
         var result = gl.createBuffer();
-        gl.bindBuffer(type, result);
-        gl.bufferData(type, data, usage);
+        gl.bindBuffer(target, result);
+        gl.bufferData(target, data, usage);
         return result;
     },
 

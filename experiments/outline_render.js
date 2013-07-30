@@ -38,7 +38,7 @@ function Application() {
             .mousemove(this._onMouseMove.bind(this))
             .bind('mousewheel wheel', this._onMouseWheel.bind(this));
     // Setup time trigger
-    this._timer = new ol.webglnew.Timer(this.frame.bind(this),
+    this._timer = new ol.webglnew.Timer(this._frame.bind(this),
                                         this.MIN_FRAME_DELAY_MS);
     // Call 'frame' from now on
     this._timer.start();
@@ -54,7 +54,7 @@ Application.prototype = {
 
     _veloX: 0, _veloY: 0,
 
-    frame: function() {
+    _frame: function() {
         var gl = this.gl.context;
 
         // Frame starts now.
@@ -87,11 +87,11 @@ Application.prototype = {
 
         $('#rotation-angle').slider({min: 0, max: Math.PI * 2, value: 0, step: 0.0001 });
         $('#rotation-speed').slider({min: 0, max: 1, value: 0, step: 0.0001 });
-        $('#grid-size-x').slider({min: 10, max: 999, step: 1, value: 400});
-        $('#grid-size-y').slider({min: 10, max: 999, step: 1, value: 400});
         $('#line-width').slider({min: 0.0001, max: 5, value: 1.5, step: 0.0001});
         $('#anti-aliasing').slider({min: 0, max: 5, value: 1.5, step: 0.0001});
         $('#gamma').slider({min: 0.125, max: 10, value: 2.2, step: 0.125});
+        $('#grid-size-x').slider({min: 10, max: 999, step: 1, value: 400});
+        $('#grid-size-y').slider({min: 10, max: 999, step: 1, value: 400});
 
         $('#user-interface').children(':ui-slider')
                 .after('<div class="value-display"/>')
@@ -175,12 +175,8 @@ Application.prototype = {
                 this._SQUARE_INDEX_DATA, goog.webgl.ELEMENT_ARRAY_BUFFER);
 
         // Set start offset
-        var canvas = $('#webgl-canvas');
-        this._posX = canvas.width() / 2;
-        this._posY = canvas.height() / 2;
-    },
-
-    _setupUI: function() {
+        this._posX = gl.drawingBufferWidth / 2;
+        this._posY = gl.drawingBufferHeight / 2;
     },
 
     _renderBackground: function() {
@@ -196,7 +192,6 @@ Application.prototype = {
             $('#rotation-angle').slider('value', angle);
         }
         var lineWidth = $('#line-width').slider('value');
-        var jqAntiAliasing = $('#anti-aliasing');
         var antiAliasing = $('#anti-aliasing').slider('value');
         var aaSmoothing = $('#aa-smoothing').val();
         var gamma = $('#gamma').slider('value');
@@ -215,7 +210,7 @@ Application.prototype = {
         gl.bindBuffer(gl.ARRAY_BUFFER, this._bgVertices);
         gl.enableVertexAttribArray(0);
         gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
-        gl.bindBuffer(gl.ARRAY_ELEMENT_BUFFER, this._bgIndices);
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this._bgIndices);
         gl.drawElements(gl.TRIANGLES, 6, goog.webgl.UNSIGNED_SHORT, 0);
         gl.disableVertexAttribArray(0);
     },
