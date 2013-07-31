@@ -180,16 +180,15 @@ Application.prototype = {
 
     _renderPolys: function() {
 
-        var lineWidth = $('#line-width').slider('value');
-        var antiAliasing = $('#anti-aliasing').slider('value');
         var angle = $('#rotation-angle').slider('value');
         var angleAnim = $('#rotation-speed').slider('value');
-
         if (angleAnim > 0) {
             angle = (angle + angleAnim * this._timeSlicer.dt) % (Math.PI * 2);
-
             $('#rotation-angle').slider('value', angle);
         }
+        var lineWidth = $('#line-width').slider('value');
+        var antiAliasing = $('#anti-aliasing').slider('value');
+        var gamma = $('#gamma').slider('value');
 
         var gl = this.gl.context;
         gl.enable(goog.webgl.BLEND);
@@ -200,7 +199,7 @@ Application.prototype = {
         gl.uniformMatrix2fv(this._polyUniRotation, false, [ cosA, sinA, -sinA, cosA ]);
         gl.uniform4f(this._polyUniFillColor, 0.0, 0.0, 1.0, 1.0);
         gl.uniform4f(this._polyUniStrokeColor, 1.0, 0.8, 0.1, 1.0);
-        gl.uniform4f(this._polyUniRenderParams, lineWidth, antiAliasing, 0, 0);
+        gl.uniform4f(this._polyUniRenderParams, lineWidth, antiAliasing, gamma, 1/gamma);
 
         gl.bindBuffer(goog.webgl.ARRAY_BUFFER, this._polyPosition);
         gl.enableVertexAttribArray(this._polyAttrPosition);
@@ -232,6 +231,7 @@ Application.prototype = {
         $('#rotation-speed').slider({min: 0, max: 1, value: 0, step: 0.0001 });
         $('#line-width').slider({min: 0.0001, max: 5, value: 1.5, step: 0.0001});
         $('#anti-aliasing').slider({min: 0, max: 5, value: 1.5, step: 0.0001});
+        $('#gamma').slider({min: 0.125, max: 10, value: 2.2, step: 0.125});
         $('#grid-size-x').slider({min: 10, max: 999, step: 1, value: 400});
         $('#grid-size-y').slider({min: 10, max: 999, step: 1, value: 400});
 

@@ -74,6 +74,8 @@ uniform vec4 StrokeColor;
 uniform vec4 RenderParams;
 float lineWidth = RenderParams.x;
 float antiAliasing = RenderParams.y;
+float gamma = RenderParams.z;
+float rcpGamma = RenderParams.w;
 
 
 // ---- Implementation
@@ -82,6 +84,15 @@ float blendCoeff(vec2 edge0, vec2 edge1, vec2 x) {
     vec2 weight = smoothstep(edge0, edge1, x);
     return max(weight.x, weight.y);
 }
+
+vec3 gammaApply(vec3 color) {
+    return pow(abs(color), vec3(gamma));
+}
+
+vec3 gammaCorrect(vec3 color) {
+    return pow(abs(color), vec3(rcpGamma));
+}
+
 
 void main(void) {
 
@@ -122,12 +133,12 @@ void main(void) {
     vec4 color = mix(FillColor, StrokeColor, blendCoeff(innerEdgeMin, innerEdgeMax, dist));
 
     // Adjust alpha for anti-aliasing on the outer edge
-    color.a = color.a * smoothstep(0.0, 1.0, 1.0 - blendCoeff(outerEdgeMin, vec2(1.0), dist));
+    color.a = color.a * (1.0 - blendCoeff(outerEdgeMin, vec2(1.0), dist));
 
-    // Blend against background - hopefully the WebGL implementation will
-    // linearize the color space (IOW apply gamma correction)
-    //
+    // Obviously - no gamma correction happens implicitly on most platforms.
     // See: http://stackoverflow.com/questions/10843321
+    color.rgb = gammaCorrect(color.rgb);
+
 #if PREMULTIPLY_BY_ALPHA
     color.rgb *= color.a;
 #endif
@@ -199,6 +210,8 @@ void main(void) {
                 <div class="slider" id="line-width"></div>
                 <div class="label">Anti Aliasing (pixels)</div>
                 <div class="slider" id="anti-aliasing"></div>
+                <div class="label">Gamma (of display)</div>
+                <div class="slider" id="gamma"></div>
                 <div class="label">Grid Size (pixels x,y)</div>
                 <div class="slider" id="grid-size-x"></div>
                 <div class="slider" id="grid-size-y"></div>
