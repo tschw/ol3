@@ -202,14 +202,16 @@ Application.prototype = {
         gl.uniform4f(this._polyUniStrokeColor, 1.0, 0.8, 0.1, 1.0);
         gl.uniform4f(this._polyUniRenderParams, lineWidth, antiAliasing, 0, 0);
 
-        gl.enableVertexAttribArray(this._polyAttrPosition);
         gl.bindBuffer(goog.webgl.ARRAY_BUFFER, this._polyPosition);
+        gl.enableVertexAttribArray(this._polyAttrPosition);
         gl.vertexAttribPointer(this._polyAttrPosition, 2, gl.FLOAT, false, 0, 0);
-        gl.enableVertexAttribArray(this._polyAttrSurfaceScale);
+
         gl.bindBuffer(goog.webgl.ARRAY_BUFFER, this._polySurfaceScale);
-        gl.vertexAttribPointer(this._polySurfaceScale, 2, gl.FLOAT, false, 0, 0);
-        gl.enableVertexAttribArray(this._polyAttrControl);
+        gl.enableVertexAttribArray(this._polyAttrSurfaceScale);
+        gl.vertexAttribPointer(this._polyAttrSurfaceScale, 2, gl.FLOAT, false, 0, 0);
+
         gl.bindBuffer(goog.webgl.ARRAY_BUFFER, this._polyControl);
+        gl.enableVertexAttribArray(this._polyAttrControl);
         gl.vertexAttribPointer(this._polyAttrControl, 1, gl.FLOAT, false, 0, 0);
 
         gl.drawArrays(goog.webgl.TRIANGLE_STRIP, 0, 6);
