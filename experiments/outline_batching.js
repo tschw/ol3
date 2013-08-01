@@ -98,7 +98,7 @@ Application.prototype = {
 
         var gl = this.gl.context;
         var fragShaderSource = [ '#version 100',
-            this.gl.OES_standard_derivatives ? 
+            this.gl.OES_standard_derivatives !== undefined ? 
                     '#extension GL_OES_standard_derivatives : enable' : '',
             '#define PREMULTIPLY_BY_ALPHA ' +
                     (gl.getContextAttributes().premultipliedAlpha ? '0' : '1'),
@@ -201,7 +201,7 @@ Application.prototype = {
 
         var cosA = Math.cos(angle), sinA = Math.sin(angle);
         gl.uniformMatrix2fv(this._polyUniRotation, false, [ cosA, sinA, -sinA, cosA ]);
-        gl.uniform4f(this._polyUniFillColor, 1.0, 0.0, 0.0, 1.0);
+        gl.uniform4f(this._polyUniFillColor, 0.0, 0.0, 1.0, 1.0);
         gl.uniform4f(this._polyUniStrokeColor, 1.0, 0.8, 0.1, 1.0);
         gl.uniform4f(this._polyUniRenderParams, lineWidth, antiAliasing, gamma, 1/gamma);
         gl.uniform2f(this._polyUniScale, 1/100, 1/100);

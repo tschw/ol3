@@ -57,6 +57,8 @@ void main(void) {
         <script id="webgl-poly-frag" type="x-shader/x-vertex">
 // ---- Configuration
 
+//#define USE_DERIVATIVE
+
 precision mediump float;
 
 // ---- Interface
@@ -97,10 +99,10 @@ void main(void) {
 
     // Determine distance vector from centerpoint (1;1) surface coordinates
     // the outer edge of the surface is located at 1
-    vec2 dist = min(fract(abs(Surface - vec2(1.0))), 1.0);
+    vec2 dist = min(abs(Surface - vec2(1.0)), 1.0);
 
     // Determine surface scale from screen space derivatives
-#if GL_OES_standard_derivatives
+#if defined GL_OES_standard_derivatives && defined USE_DERIVATIVE
     vec2 dSurfPixX = dFdx(Surface), dSurfPixY = dFdy(Surface);
     vec2 scale = vec2(length(vec2(dSurfPixX.x, dSurfPixY.x)),
                       length(vec2(dSurfPixX.y, dSurfPixY.y)));
