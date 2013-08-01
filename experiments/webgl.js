@@ -22,10 +22,10 @@ goog.require('goog.webgl');
  * @constructor
  * @param {Object} canvas Canvas DOM element.
  */
-ol.webglnew.WebGL = function(canvas) {
+ol.webglnew.WebGL = function(canvas, opt_contextAttrs) {
     try {
-        this.context = canvas.getContext("webgl") || 
-                canvas.getContext("experimental-webgl");
+        this.context = canvas.getContext("webgl", opt_contextAttrs) || 
+                canvas.getContext("experimental-webgl", opt_contextAttrs);
     } catch(e) {
         this.error(e);
     }
@@ -336,6 +336,7 @@ ol.webglnew.WebGL.prototype = {
         case goog.webgl.UNSIGNED_INT:   return Uint32Array;
         case goog.webgl.FLOAT:          return Float32Array;
         }
+        return null;
     },
 
     /**
@@ -354,6 +355,7 @@ ol.webglnew.WebGL.prototype = {
         case goog.webgl.UNSIGNED_INT:
         case goog.webgl.FLOAT:          return 4;
         }
+        return null;
     },
 
 

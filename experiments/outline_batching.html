@@ -29,13 +29,11 @@ precision mediump float;
 // ---- Interface
 
 attribute vec2 Position;
-attribute vec2 SurfaceScale;
 attribute float Control;
 
 uniform mat2 Rotation;
 
 varying vec2 Surface;
-varying vec2 Scale;
 varying float Invalidator;
 
 // ---- Implementation
@@ -51,7 +49,6 @@ void main(void) {
 
     float edge = Control; 
     Surface = vec2(extractHighbits(edge, 4.), removeHighbits(edge, 4.));
-    Scale = SurfaceScale;
     Invalidator = max(Surface.y - 2.0, 0.0);
     gl_Position = vec4(Rotation * Position, 0.0, 1.0);
 }
@@ -65,9 +62,9 @@ precision mediump float;
 // ---- Interface
 
 varying vec2 Surface;
-varying vec2 Scale;
 varying float Invalidator;
 
+uniform vec2 Scale;
 uniform vec4 FillColor;
 uniform vec4 StrokeColor;
 
@@ -100,7 +97,16 @@ void main(void) {
 
     // Determine distance vector from centerpoint (1;1) surface coordinates
     // the outer edge of the surface is located at 1
-    vec2 dist = fract(abs(Surface - vec2(1.0)));
+    vec2 dist = min(fract(abs(Surface - vec2(1.0))), 1.0);
+
+    // Determine surface scale from screen space derivatives
+#if GL_OES_standard_derivatives
+    vec2 dSurfPixX = dFdx(Surface), dSurfPixY = dFdy(Surface);
+    vec2 scale = vec2(length(vec2(dSurfPixX.x, dSurfPixY.x)),
+                      length(vec2(dSurfPixX.y, dSurfPixY.y)));
+#else
+    vec2 scale = Scale;
+#endif
 
     // Determine surface coordinate thresholds:
     //
@@ -109,9 +115,9 @@ void main(void) {
     //              |<---+-->|<-------+-------->|  
     //              :   \|/  :       \|/        :
     //              :   /|\  :        |         :
-    vec2 edgeWidth = antiAliasing * Scale;
+    vec2 edgeWidth = antiAliasing * scale;
     //              :        :       /|\        :
-    vec2 outline = lineWidth * Scale;
+    vec2 outline = lineWidth * scale;
     //              :        :        :         :
     //              :        :        ^<--------|
     vec2 outerEdgeMin = vec2(1.0) - edgeWidth;
@@ -135,8 +141,12 @@ void main(void) {
     // Adjust alpha for anti-aliasing on the outer edge
     color.a = color.a * (1.0 - blendCoeff(outerEdgeMin, vec2(1.0), dist));
 
-    // Obviously - no gamma correction happens implicitly on most platforms.
+    // Obviously - no implicit gamma correction happens on most platforms.
     // See: http://stackoverflow.com/questions/10843321
+    //
+    // This is only half of it - acutually the proper way would require
+    // a finalizing rendering task, so that blending can be performed
+    // in linearized color space.
     color.rgb = gammaCorrect(color.rgb);
 
 #if PREMULTIPLY_BY_ALPHA

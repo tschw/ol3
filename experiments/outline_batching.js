@@ -6,7 +6,9 @@ function Application() {
     // WebGL initialization
     if (ol.webglnew.WebGL.available()) {
 
-        var gl = new ol.webglnew.WebGL($('#webgl-canvas')[0]);
+        var gl = new ol.webglnew.WebGL($('#webgl-canvas')[0], { 
+            alpha: true, blend: true, stencil: false, antialias: false,
+            premultilpiedAlpha: false, preserveDrawingBuffer: false });
         if (gl != null) this.gl = gl;
         else $('#app-panel,#webgl-init-failed').toggleClass('invisible');
     }
@@ -17,6 +19,10 @@ function Application() {
     // Configure rendering
     var gl = this.gl.context;
     goog.webgl = gl; // TODO: unhack
+
+    var ext = this.gl.OES_standard_derivatives = gl.getExtension('OES_standard_derivatives');
+    gl.hint(ext.FRAGMENT_SHADER_DERIVATIVE_HINT_OES, goog.webgl.NICEST);
+    
 
     //gl.enable(gl.DEPTH_TEST);
     //gl.depthFunc(gl.LEQUAL);
@@ -92,7 +98,9 @@ Application.prototype = {
 
         var gl = this.gl.context;
         var fragShaderSource = [ '#version 100',
-            '#define PREMULTIPLY_BY_ALPHA ' + 
+            this.gl.OES_standard_derivatives ? 
+                    '#extension GL_OES_standard_derivatives : enable' : '',
+            '#define PREMULTIPLY_BY_ALPHA ' +
                     (gl.getContextAttributes().premultipliedAlpha ? '0' : '1'),
             $('#webgl-poly-frag').text() ].join('\n');
 
@@ -101,18 +109,14 @@ Application.prototype = {
 
         this._polyAttrPosition = gl.getAttribLocation(this._polyProgram, 'Position');
         this._polyPosition = this.gl.buffer(new Float32Array([  0, -0.25,  0.25, 0.25,  -0.25, 0.25,  0, 0.5,  -0.5,0.5,  0,0.7, -0.7, 0.7]));
-        this._polyAttrSurfaceScale = gl.getAttribLocation(this._polyProgram, 'SurfaceScale');
-        // TODO inaccurate total guesstimation, here - derive automatically
-        var a = 1/50;
-        this._polySurfaceScale = this.gl.buffer(new Float32Array([
-                a,a, a,a, a,a, a,a, a,a, a,a ]));
         this._polyAttrControl = gl.getAttribLocation(this._polyProgram, 'Control');
         // Control: Two two-bit surface coordinates. 
         // Edges are drawn at 0 and 2, 1 describes an inner edge.
         // If the lower value is 3, the triangle is invalidated and not drawn 
-        this._polyControl = this.gl.buffer(new Float32Array([ 0,   8,   2,   8,   2,   0 ]));
+        this._polyControl = this.gl.buffer(new Float32Array([ 0,   4,   1,   4,   1,   0 ]));
 
         this._polyUniRotation = gl.getUniformLocation(this._polyProgram, 'Rotation');
+        this._polyUniScale = gl.getUniformLocation(this._polyProgram, 'Scale');
         this._polyUniFillColor = gl.getUniformLocation(this._polyProgram, 'FillColor');
         this._polyUniStrokeColor = gl.getUniformLocation(this._polyProgram, 'StrokeColor');
         this._polyUniRenderParams = gl.getUniformLocation(this._polyProgram, 'RenderParams');
@@ -197,21 +201,21 @@ Application.prototype = {
 
         var cosA = Math.cos(angle), sinA = Math.sin(angle);
         gl.uniformMatrix2fv(this._polyUniRotation, false, [ cosA, sinA, -sinA, cosA ]);
-        gl.uniform4f(this._polyUniFillColor, 0.0, 0.0, 1.0, 1.0);
+        gl.uniform4f(this._polyUniFillColor, 1.0, 0.0, 0.0, 1.0);
         gl.uniform4f(this._polyUniStrokeColor, 1.0, 0.8, 0.1, 1.0);
         gl.uniform4f(this._polyUniRenderParams, lineWidth, antiAliasing, gamma, 1/gamma);
+        gl.uniform2f(this._polyUniScale, 1/100, 1/100);
 
-        gl.bindBuffer(goog.webgl.ARRAY_BUFFER, this._polyPosition);
-        gl.enableVertexAttribArray(this._polyAttrPosition);
-        gl.vertexAttribPointer(this._polyAttrPosition, 2, gl.FLOAT, false, 0, 0);
-
-        gl.bindBuffer(goog.webgl.ARRAY_BUFFER, this._polySurfaceScale);
-        gl.enableVertexAttribArray(this._polyAttrSurfaceScale);
-        gl.vertexAttribPointer(this._polyAttrSurfaceScale, 2, gl.FLOAT, false, 0, 0);
-
-        gl.bindBuffer(goog.webgl.ARRAY_BUFFER, this._polyControl);
-        gl.enableVertexAttribArray(this._polyAttrControl);
-        gl.vertexAttribPointer(this._polyAttrControl, 1, gl.FLOAT, false, 0, 0);
+        if (this._polyAttrPosition != -1) {
+            gl.bindBuffer(goog.webgl.ARRAY_BUFFER, this._polyPosition);
+            gl.enableVertexAttribArray(this._polyAttrPosition);
+            gl.vertexAttribPointer(this._polyAttrPosition, 2, gl.FLOAT, false, 0, 0);
+        }
+        if (this._polyAttrControl != -1) {
+            gl.bindBuffer(goog.webgl.ARRAY_BUFFER, this._polyControl);
+            gl.enableVertexAttribArray(this._polyAttrControl);
+            gl.vertexAttribPointer(this._polyAttrControl, 1, gl.FLOAT, false, 0, 0);
+        }
 
         gl.drawArrays(goog.webgl.TRIANGLE_STRIP, 0, 6);
 
