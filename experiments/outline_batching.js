@@ -21,8 +21,7 @@ function Application() {
     goog.webgl = gl; // TODO: unhack
 
     var ext = this.gl.OES_standard_derivatives = gl.getExtension('OES_standard_derivatives');
-    gl.hint(ext.FRAGMENT_SHADER_DERIVATIVE_HINT_OES, goog.webgl.NICEST);
-    
+    gl.hint(ext.FRAGMENT_SHADER_DERIVATIVE_HINT_OES, goog.webgl.FASTEST);
 
     //gl.enable(gl.DEPTH_TEST);
     //gl.depthFunc(gl.LEQUAL);
@@ -94,33 +93,240 @@ Application.prototype = {
 
     // Main renderer
 
+
     _setupPolys: function() {
 
         var gl = this.gl.context;
-        var fragShaderSource = [ '#version 100',
-            this.gl.OES_standard_derivatives !== undefined ? 
-                    '#extension GL_OES_standard_derivatives : enable' : '',
-            '#define PREMULTIPLY_BY_ALPHA ' +
-                    (gl.getContextAttributes().premultipliedAlpha ? '0' : '1'),
-            $('#webgl-poly-frag').text() ].join('\n');
 
-        this._polyProgram = this.gl.linkProgram($('#webgl-poly-vert').text(),
-                                                fragShaderSource);
+        //
+        // Setup shaders
+        //
+        // We create a header that enables standard derivatives extension
+        // when available and tells us whether to premultiply the color by
+        // the alpha component.
+        //
 
-        this._polyAttrPosition = gl.getAttribLocation(this._polyProgram, 'Position');
-        this._polyPosition = this.gl.buffer(new Float32Array([  0, -0.25,  0.25, 0.25,  -0.25, 0.25,  0, 0.5,  -0.5,0.5,  0,0.7, -0.7, 0.7]));
-        this._polyAttrControl = gl.getAttribLocation(this._polyProgram, 'Control');
-        // Control: Two two-bit surface coordinates. 
-        // Edges are drawn at 0 and 2, 1 describes an inner edge.
-        // If the lower value is 3, the triangle is invalidated and not drawn 
-        this._polyControl = this.gl.buffer(new Float32Array([ 0,   4,   1,   4,   1,   0 ]));
+        this._programs = [ ];
+        var vertShaderSource = $('#webgl-poly-vert').text();
+        var fragShaderSource = $('#webgl-poly-frag').text();
 
-        this._polyUniRotation = gl.getUniformLocation(this._polyProgram, 'Rotation');
-        this._polyUniScale = gl.getUniformLocation(this._polyProgram, 'Scale');
-        this._polyUniFillColor = gl.getUniformLocation(this._polyProgram, 'FillColor');
-        this._polyUniStrokeColor = gl.getUniformLocation(this._polyProgram, 'StrokeColor');
-        this._polyUniRenderParams = gl.getUniformLocation(this._polyProgram, 'RenderParams');
+        var fragShaderSourceBuilder = [ '#version 100' ];
+        if (gl.getContextAttributes().premultipliedAlpha) {
+          //  fragShaderSourceBuilder.push('#define PREMULTIPLY_BY_ALPHA 1');
+        }
+        fragShaderSourceBuilder.push(fragShaderSource);
+        this._programs.push(this._polyShaderDesc(
+                this.gl.linkProgram(vertShaderSource,
+                                    fragShaderSourceBuilder.join('\n')) ));
+        if (goog.isDef(this.gl.OES_standard_derivatives)) {
+            fragShaderSourceBuilder.splice(fragShaderSourceBuilder.length - 1, 1);
+            fragShaderSourceBuilder.push('#extension GL_OES_standard_derivatives : enable');
+            fragShaderSourceBuilder.push('#define STANDARD_DERIVATIVES 1');
+            $('<option value="1">using derivatives extension</option>').appendTo('#program');
+            fragShaderSourceBuilder.push(fragShaderSource);
+            this._programs.push(this._polyShaderDesc(
+                    this.gl.linkProgram(vertShaderSource,
+                                        fragShaderSourceBuilder.join('\n')) ));
+        }
+
+        //
+        // Setup buffers
+        //
+
+        this._models = [ ];
+
+        this._models.push({ 
+            vbuf: this.gl.buffer(this._expandLine(this._LINE_COORDS, 0.0625)),
+            ibuf: null,
+            tess: goog.webgl.TRIANGLE_STRIP,
+            n: this._LINE_COORDS.length });
+        this._models.push({
+            vbuf: this.gl.buffer(this._expandLine(this._LINE_COORDS, 0.0625, true)),
+            ibuf: null,
+            tess: goog.webgl.TRIANGLE_STRIP,
+            n: this._LINE_COORDS.length + 2 });
     },
+
+    _polyShaderDesc: function(prog) {
+        var result = { glObject: prog };
+        var gl = this.gl.context;
+
+        // Query vertex attributes
+        result.attrPosition = gl.getAttribLocation(prog, 'Position');
+        result.attrControl = gl.getAttribLocation(prog, 'Control');
+
+        // Query uniforms
+
+        result.uniRotation = gl.getUniformLocation(prog, 'Rotation');
+        result.uniFillColor = gl.getUniformLocation(prog, 'FillColor');
+        result.uniStrokeColor = gl.getUniformLocation(prog, 'StrokeColor');
+        result.uniRenderParams = gl.getUniformLocation(prog, 'RenderParams');
+        result.uniScale = gl.getUniformLocation(prog, 'Scale');
+        return result;
+    },
+
+    _renderPolys: function() {
+
+        // UI interaction
+        var angle = $('#rotation-angle').slider('value');
+        var angleAnim = $('#rotation-speed').slider('value');
+        if (angleAnim > 0) {
+            // (modulated add to angle when rotating)
+            angle = (angle + angleAnim * this._timeSlicer.dt) % (Math.PI * 2);
+            $('#rotation-angle').slider('value', angle);
+        }
+        var lineWidth = $('#line-width').slider('value');
+        var antiAliasing = $('#anti-aliasing').slider('value');
+        var gamma = $('#gamma').slider('value');
+        var modelIndex = $('#model').val();
+        var programIndex = $('#program').val();
+
+
+        var gl = this.gl.context;
+        var program = this._programs[programIndex];
+
+        // Enable blending.
+        gl.enable(goog.webgl.BLEND);
+        gl.blendFunc(goog.webgl.SRC_ALPHA, goog.webgl.ONE_MINUS_SRC_ALPHA);
+        gl.useProgram(this._programs[programIndex].glObject); 
+
+        // Setup rotation matrix.
+        var cosA = Math.cos(angle), sinA = Math.sin(angle);
+        gl.uniformMatrix2fv(program.uniRotation, false, [ cosA, sinA, -sinA, cosA ]);
+
+        // Set uniforms.
+        gl.uniform4f(program.uniFillColor, 0.0, 0.0, 1.0, 1.0);
+        gl.uniform4f(program.uniStrokeColor, 1.0, 0.8, 0.1, 1.0);
+        gl.uniform4f(program.uniRenderParams, lineWidth, antiAliasing, gamma, 1/gamma);
+        gl.uniform2f(program.uniScale, 1/50, 1/10); // TODO make sure this stuff is proper
+
+        // Setup buffers and render
+        var model = this._models[modelIndex];
+        gl.bindBuffer(goog.webgl.ARRAY_BUFFER, model.vbuf);
+        gl.enableVertexAttribArray(program.attrPosition);
+        gl.vertexAttribPointer(program.attrPosition, 2, gl.FLOAT, false, 12, 0);
+        gl.enableVertexAttribArray(program.attrControl);
+        gl.vertexAttribPointer(program.attrControl, 1, gl.FLOAT, false, 12, 8);
+
+        gl.drawArrays(model.tess, 0, model.n);
+
+        gl.disableVertexAttribArray(program.attrPosition);
+        gl.disableVertexAttribArray(program.attrControl);
+
+        // Disable blending
+        gl.disable(goog.webgl.BLEND);
+    },
+
+    _expandLine: function(coords, width, opt_ring) {
+
+        width *= 0.5;
+
+        var result = new Float32Array(coords.length * 3 + (!opt_ring ? 0 : 6));
+        var k = 0;
+
+        // original first position (need this wrapping around on the last)
+        var firstX = coords[0], firstY = coords[1];
+
+        // first vertex to consider (starting with the last)
+        var iLast = coords.length - 2;
+        var fromX, fromY ,n0X, n0Y;
+        if (! opt_ring) {
+            fromX = firstX, fromY = firstY;
+            firstX = coords[2], firstY = coords[3];
+        } else {
+            fromX = coords[iLast], fromY = coords[iLast + 1];
+        }
+        // first normal
+        var n0X = firstY - fromY, n0Y = fromX - firstX;
+        var f = 1 / Math.sqrt(n0X * n0X + n0Y * n0Y); // 1 / len(n0)
+        n0X *= f; n0Y *= f;
+
+        var hereX, hereY, toX, toY, n1X, n1Y;
+
+        var ctrl = !opt_ring ? 0 : 4;
+        for (var i = 0; i < iLast; i += 2) {
+
+            // fetch coordinates: from -> here -> to
+            hereX = coords[i]; hereY = coords[i+1]; 
+            toX = coords[i+2]; toY = coords[i+3];
+
+            // calculate normal of here -> to
+            n1X = toY - hereY, n1Y = hereX - toX;
+            f = 1 / Math.sqrt(n1X * n1X + n1Y * n1Y); // 1 / len(n1)
+            n1X *= f; n1Y *= f;
+
+            // create halfway normal for the direction
+            n0X += n1X; n0Y += n1Y;
+            f = 1 / Math.sqrt(n0X * n0X + n0Y * n0Y); // 1 / len(n0)
+            n0X *= f; n0Y *= f;
+
+            // move position by amount and underestimation factor
+            f = width / (n0X * n1X + n0Y * n1Y); // width / dot(n0,n1)
+            n0X *= f; n0Y *= f;
+            result[k++] = hereX - n0X;
+            result[k++] = hereY - n0Y;
+            result[k++] = ctrl;
+            result[k++] = hereX + n0X;
+            result[k++] = hereY + n0Y;
+            result[k++] = ctrl + 2;
+
+            // use now-changed vertex position and one normal in next iteration
+            fromX = hereX; fromY = hereY;
+            n0X = n1X; n0Y = n1Y;
+
+            ctrl = 4;
+        }
+
+        // once again for the special, last vertex (look ahead wraps around)
+
+        hereX = coords[iLast]; hereY = coords[iLast+1]; 
+
+        if (! opt_ring) {
+
+            ctrl = 8;
+            n0X *= width; n0Y *= width;
+            result[k++] = hereX - n0X;
+            result[k++] = hereY - n0Y;
+            result[k++] = ctrl;
+            result[k++] = hereX + n0X;
+            result[k++] = hereY + n0Y;
+            result[k++] = ctrl + 2;
+
+        } else {
+
+            // looking ahead means wrapping around
+
+            n1X = firstY - hereY, n1Y = hereX - firstX;
+            f = 1 / Math.sqrt(n1X * n1X + n1Y * n1Y); // 1 / len(n1)
+            n1X *= f; n1Y *= f;
+
+            n0X += n1X; n0Y += n1Y;
+            f = 1 / Math.sqrt(n0X * n0X + n0Y * n0Y); // 1 / len(n0)
+            n0X *= f; n0Y *= f;
+
+            f = width / (n0X * n1X + n0Y * n1Y); // width / dot(n0,n1)
+            n0X *= f; n0Y *= f;
+
+            result[k++] = hereX - n0X;
+            result[k++] = hereY - n0Y;
+            result[k++] = ctrl;
+            result[k++] = hereX + n0X;
+            result[k++] = hereY + n0Y;
+            result[k++] = ctrl + 2;
+            // repeat first vertex
+            result[k++] = result[0];
+            result[k++] = result[1];
+            result[k++] = result[2];
+            result[k++] = result[3];
+            result[k++] = result[4];
+            result[k++] = result[5];
+        }
+        return result;
+    },
+
+    _LINE_COORDS: [ 
+        0, -0.5,   0, 0,   0.25, 0.25,   0.25, 0.5,   0, 0.7,   0, 0.5,   -0.25, 0.4
+    ],
 
     _expandOutline: function(coords, amount) {
 
@@ -154,13 +360,18 @@ Application.prototype = {
 
             // calculate normal of here -> to
             n1X = toY - hereY, n1Y = hereX - toX;
-            f = 1 / sqrt(n1X * n1X + n1Y * n1Y);
+            f = 1 / Math.sqrt(n1X * n1X + n1Y * n1Y);
             n1X *= f; n1Y *= f;
 
-            // translate by sum of indepdendent directions
-            f = n0X * n1X + n0Y + n1Y; // dot(n1,n2)
-            coords[i] += amount * (n0X + n1X - n1X * f);
-            coords[i + 1] += amount * (n0Y + n1Y - n1Y * f);
+            // create halfway normal for the direction
+            n0X += n1X; n0Y += n1Y;
+            f = 1 / Math.sqrt(n0X * n0X + n0Y * n0Y);
+            n0X *= f; n0Y *= f;
+
+            // move position by amount and underestimation factor
+            f = 1 / (n0X * n1X + n0Y * n1Y); 
+            coords[i] += amount * n0X * f;
+            coords[i + 1] += amount * n0Y * f;
 
             // use now-changed vertex position and one normal in next iteration
             fromX = hereX; fromY = hereY;
@@ -168,62 +379,19 @@ Application.prototype = {
         }
 
         // once again for the special, last vertex (look ahead wraps around)
-        {
-            hereX = coords[iLast]; hereY = coords[iLast+1]; 
+        hereX = coords[iLast]; hereY = coords[iLast+1]; 
 
-            n1X = firstY - hereY, n1Y = hereX - firstX;
-            f = 1 / sqrt(n1X * n1X + n1Y * n1Y);
-            n1X *= f; n1Y *= f;
+        n1X = firstY - hereY, n1Y = hereX - firstX;
+        f = 1 / sqrt(n1X * n1X + n1Y * n1Y);
+        n1X *= f; n1Y *= f;
 
-            f = n0X * n1X + n0Y + n1Y; // dot(n1,n2)
-            coords[iLast] += amount * (n0X + n1X - n1X * f);
-            coords[iLast + 1] += amount * (n0Y + n1Y - n1Y * f);
-        }
+        n0X += n1X; n0Y += n1Y;
+        f = 1 / Math.sqrt(n0X * n0X + n0Y * n0Y);
+        n0X *= f; n0Y *= f;
 
-    },
-
-    _renderPolys: function() {
-
-        var angle = $('#rotation-angle').slider('value');
-        var angleAnim = $('#rotation-speed').slider('value');
-        if (angleAnim > 0) {
-            angle = (angle + angleAnim * this._timeSlicer.dt) % (Math.PI * 2);
-            $('#rotation-angle').slider('value', angle);
-        }
-        var lineWidth = $('#line-width').slider('value');
-        var antiAliasing = $('#anti-aliasing').slider('value');
-        var gamma = $('#gamma').slider('value');
-
-        var gl = this.gl.context;
-        gl.enable(goog.webgl.BLEND);
-        gl.blendFunc(goog.webgl.SRC_ALPHA, goog.webgl.ONE_MINUS_SRC_ALPHA);
-        gl.useProgram(this._polyProgram);
-
-        var cosA = Math.cos(angle), sinA = Math.sin(angle);
-        gl.uniformMatrix2fv(this._polyUniRotation, false, [ cosA, sinA, -sinA, cosA ]);
-        gl.uniform4f(this._polyUniFillColor, 0.0, 0.0, 1.0, 1.0);
-        gl.uniform4f(this._polyUniStrokeColor, 1.0, 0.8, 0.1, 1.0);
-        gl.uniform4f(this._polyUniRenderParams, lineWidth, antiAliasing, gamma, 1/gamma);
-        gl.uniform2f(this._polyUniScale, 1/100, 1/100);
-
-        if (this._polyAttrPosition != -1) {
-            gl.bindBuffer(goog.webgl.ARRAY_BUFFER, this._polyPosition);
-            gl.enableVertexAttribArray(this._polyAttrPosition);
-            gl.vertexAttribPointer(this._polyAttrPosition, 2, gl.FLOAT, false, 0, 0);
-        }
-        if (this._polyAttrControl != -1) {
-            gl.bindBuffer(goog.webgl.ARRAY_BUFFER, this._polyControl);
-            gl.enableVertexAttribArray(this._polyAttrControl);
-            gl.vertexAttribPointer(this._polyAttrControl, 1, gl.FLOAT, false, 0, 0);
-        }
-
-        gl.drawArrays(goog.webgl.TRIANGLE_STRIP, 0, 6);
-
-        gl.disableVertexAttribArray(2);
-        gl.disableVertexAttribArray(1);
-        gl.disableVertexAttribArray(0);
-
-        gl.disable(goog.webgl.BLEND);
+        f = 1 / (n0X * n1X + n0Y * n1Y); 
+        coords[iLast] += amount * n0X * f;
+        coords[iLast + 1] += amount * n0Y  * f;
     },
 
 
