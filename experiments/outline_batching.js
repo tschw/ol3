@@ -21,7 +21,9 @@ function Application() {
     goog.webgl = gl; // TODO: unhack
 
     var ext = this.gl.OES_standard_derivatives = gl.getExtension('OES_standard_derivatives');
-    gl.hint(ext.FRAGMENT_SHADER_DERIVATIVE_HINT_OES, goog.webgl.FASTEST);
+    if (ext) {
+        gl.hint(ext.FRAGMENT_SHADER_DERIVATIVE_HINT_OES, goog.webgl.FASTEST);
+    }
 
     //gl.enable(gl.DEPTH_TEST);
     //gl.depthFunc(gl.LEQUAL);
@@ -98,13 +100,11 @@ Application.prototype = {
 
         var gl = this.gl.context;
 
-        //
         // Setup shaders
         //
         // We create a header that enables standard derivatives extension
         // when available and tells us whether to premultiply the color by
         // the alpha component.
-        //
 
         this._programs = [ ];
         var vertShaderSource = $('#webgl-poly-vert').text();
@@ -118,7 +118,7 @@ Application.prototype = {
         this._programs.push(this._polyShaderDesc(
                 this.gl.linkProgram(vertShaderSource,
                                     fragShaderSourceBuilder.join('\n')) ));
-        if (goog.isDef(this.gl.OES_standard_derivatives)) {
+        if (this.gl.OES_standard_derivatives) {
             fragShaderSourceBuilder.splice(fragShaderSourceBuilder.length - 1, 1);
             fragShaderSourceBuilder.push('#extension GL_OES_standard_derivatives : enable');
             fragShaderSourceBuilder.push('#define STANDARD_DERIVATIVES 1');
@@ -129,22 +129,32 @@ Application.prototype = {
                                         fragShaderSourceBuilder.join('\n')) ));
         }
 
-        //
         // Setup buffers
-        //
 
         this._models = [ ];
 
         this._models.push({ 
-            vbuf: this.gl.buffer(this._expandLine(this._LINE_COORDS, 0.0625)),
+            vbuf: this.gl.buffer(this._expandLine(this._LINE_COORDS1, 0.0625)),
             ibuf: null,
             tess: goog.webgl.TRIANGLE_STRIP,
-            n: this._LINE_COORDS.length });
+            n: this._LINE_COORDS1.length });
+
         this._models.push({
-            vbuf: this.gl.buffer(this._expandLine(this._LINE_COORDS, 0.0625, true)),
+            vbuf: this.gl.buffer(this._expandLine(this._LINE_COORDS1, 0.0625, true)),
             ibuf: null,
             tess: goog.webgl.TRIANGLE_STRIP,
-            n: this._LINE_COORDS.length + 2 });
+            n: this._LINE_COORDS1.length + 2 });
+
+        var nFirst = this._LINE_COORDS1.length * 3; 
+        var vertices = new Float32Array(nFirst + 6 + this._LINE_COORDS2.length * 3 + 6);
+        this._expandLine(this._LINE_COORDS1, 0.0625, false, vertices);
+        for (var i = nFirst, n = nFirst + 6; i < n; ++i) vertices[i] = 3.0;
+        this._expandLine(this._LINE_COORDS2, 0.0625, true, vertices, nFirst + 6);
+        this._models.push({
+            vbuf: this.gl.buffer(vertices),
+            ibuf: null,
+            tess: goog.webgl.TRIANGLE_STRIP,
+            n: this._LINE_COORDS1.length + 2 + this._LINE_COORDS2.length + 2});
     },
 
     _polyShaderDesc: function(prog) {
@@ -217,12 +227,12 @@ Application.prototype = {
         gl.disable(goog.webgl.BLEND);
     },
 
-    _expandLine: function(coords, width, opt_ring) {
+    _expandLine: function(coords, width, opt_ring, opt_dest, opt_dest_offset) {
 
         width *= 0.5;
 
-        var result = new Float32Array(coords.length * 3 + (!opt_ring ? 0 : 6));
-        var k = 0;
+        var result = opt_dest || new Float32Array(coords.length * 3 + (!opt_ring ? 0 : 6));
+        var k = opt_dest_offset || 0;
 
         // original first position (need this wrapping around on the last)
         var firstX = coords[0], firstY = coords[1];
@@ -314,18 +324,20 @@ Application.prototype = {
             result[k++] = hereY + n0Y;
             result[k++] = ctrl + 2;
             // repeat first vertex
-            result[k++] = result[0];
-            result[k++] = result[1];
-            result[k++] = result[2];
-            result[k++] = result[3];
-            result[k++] = result[4];
-            result[k++] = result[5];
+            var j = opt_dest_offset || 0;
+            for (var i = 0; i < 6; ++i) {
+                result[k++] = result[j++];
+            }
         }
         return result;
     },
 
-    _LINE_COORDS: [ 
+    _LINE_COORDS1: [ 
         0, -0.5,   0, 0,   0.25, 0.25,   0.25, 0.5,   0, 0.7,   0, 0.5,   -0.25, 0.4
+    ],
+
+    _LINE_COORDS2: [
+        -0.75,-0.5,   -0.5,-0.5,   -0.625,0.0
     ],
 
     _expandOutline: function(coords, amount) {
