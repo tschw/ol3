@@ -45,7 +45,6 @@ uniform vec2 PixelScale;
 varying vec2 v_Style;
 varying vec2 Surface;
 varying float Invalidator;
-varying vec4 Color;
 
 // ---- Implementation
 
@@ -68,14 +67,6 @@ vec3 transform(vec2 p) {
     vec4 tmp = Transform * vec4(p, 0.0, 1.0);
     return tmp.xyz / tmp.w;
 }
-
-vec4 decodeRgb(float v) {
-    float r = floor(v / 65536), g = floor(v / 256), b = floor(v);
-    g -= b * 256;
-    b -= r * 65536 + g * 256;
-    return vec3(r,g,b);
-}
-
 
 void main(void) {
 
