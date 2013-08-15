@@ -135,27 +135,46 @@ Application.prototype = {
         this._models = [ ];
 
         this._models.push({ 
-            vbuf: this.gl.buffer(new Float32Array(this._expandLine(this._LINE_COORDS1, 0.0625))),
+            vbuf: this.gl.buffer(new Float32Array(this._expandLine(this._LINE_COORDS1))),
             ibuf: null,
             tess: goog.webgl.TRIANGLE_STRIP,
             n: this._LINE_COORDS1.length });
 
         this._models.push({
-            vbuf: this.gl.buffer(new Float32Array(this._expandLine(this._LINE_COORDS1, 0.0625, true))),
+            vbuf: this.gl.buffer(new Float32Array(this._expandLine(this._LINE_COORDS1, true))),
             ibuf: null,
             tess: goog.webgl.TRIANGLE_STRIP,
             n: this._LINE_COORDS1.length + 2 });
 
         var nFirst = this._LINE_COORDS1.length * 3; 
-        var vertices = this._expandLine(this._LINE_COORDS1, 0.0625, false, vertices);
-        this._expandLine(this._LINE_COORDS2, 0.0625, true, vertices);
-
+        var vertices = this._expandLine(this._LINE_COORDS1);
+        this._expandLine(this._LINE_COORDS2, true, vertices);
         this._models.push({
             vbuf: this.gl.buffer(new Float32Array(vertices)),
             ibuf: null,
             tess: goog.webgl.TRIANGLE_STRIP,
-            n: vertices.length / 3 - 4});
+            n: vertices.length / 3 - 4
+        });
 
+        var data = this._tomsTestData(1/20);
+        vertices = [];
+        for(var i = 0; i < data.length; ++i) {
+            var lineString = data[i], flatCoords = [];
+            for (var j = 0; j < lineString.length; ++j) {
+                var coords = lineString[j];
+                flatCoords.push(coords[0]);
+                flatCoords.push(coords[1]);
+            }
+            this._expandLine(flatCoords, false, vertices);
+        }
+        this._models.push({
+            vbuf: this.gl.buffer(new Float32Array(vertices)),
+            ibuf: null,
+            tess: goog.webgl.TRIANGLE_STRIP,
+            n: vertices.length / 3 - 4
+        });
+
+/*
         this._models.push({
             vbuf: this.gl.buffer(new Float32Array([
                  0.00, -0.25, 0 * 4 + 0,
@@ -176,6 +195,10 @@ Application.prototype = {
                 goog.webgl.ELEMENT_ARRAY_BUFFER),
             tess: goog.webgl.TRIANGLE_STRIP,
             n: 5 });
+*/
+
+
+
 
     },
 
@@ -278,7 +301,7 @@ Application.prototype = {
         gl.disable(goog.webgl.BLEND);
     },
 
-    _expandLine: function(coords, width, opt_ring, opt_dest) {
+    _expandLine: function(coords, opt_ring, opt_dest) {
 
         var flags = (ol.webglnew.geometry.LF_OUTLINE_INNER |
                      ol.webglnew.geometry.LF_OUTLINE_OUTER |
@@ -360,6 +383,21 @@ Application.prototype = {
         -0.75,-0.5,   -0.5,-0.5,   -0.625,0.0
     ],
 
+    _tomsTestData: function(k) {
+        return ([
+          [[-20 * k, -20 * k], [20 * k, 20 * k]],
+          [[-20 * k, 20 * k], [20 * k, -20 * k]],
+          [[0 * k, 15 * k],
+           [10 * k, 5 * k],
+           [5 * k, 5 * k],
+           [5 * k, -15 * k],
+           [-5 * k, -15 * k],
+           [-5 * k, 5 * k],
+           [-10 * k, 5 * k],
+           [0 * k, 15 * k]]
+        ]);
+    },
+
     // UI
 
     _setupUserInterface: function() {
@@ -367,7 +405,7 @@ Application.prototype = {
         $('#rotation-angle').slider({min: 0, max: Math.PI * 2, value: 0.125, step: 0.0001 });
         $('#rotation-speed').slider({min: 0, max: 1, value: 0, step: 0.0001 });
         $('#scale-x, #scale-y').slider({min: 0.125, max: 10, value: 1.0, step: 0.125});
-        $('#line-width').slider({min: 0.0001, max: 5, value: 1.5, step: 0.0001});
+        $('#line-width').slider({min: 0.0001, max: 10, value: 1.5, step: 0.0001});
         $('#outline-width').slider({min: 0.0001, max: 5, value: 1.5, step: 0.0001});
         $('#anti-aliasing').slider({min: 0, max: 5, value: 1.5, step: 0.0001});
         $('#gamma').slider({min: 0.125, max: 10, value: 2.2, step: 0.125});

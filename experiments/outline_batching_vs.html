@@ -120,7 +120,6 @@ varying vec2 v_Style;
 float lineWidth = v_Style.x;
 float outlineWidth = v_Style.y;
 
-uniform vec2 Scale;
 uniform vec4 FillColor;
 uniform vec4 StrokeColor;
 
@@ -271,8 +270,9 @@ void main(void) {
                     <option value="0">Wide Line</option>
                     <option value="1">Wide Line Ring</option>
                     <option value="2">Wide Line and Ring multibatch</option>
-                    <option value="3">Single Triangle</option>
-                    <option value="4">Manually Tesselated Triangle</option>
+                    <option value="3">Tom's Line Test</option>
+                    <!-- <option value="3">Single Triangle</option> -->
+                    <!-- <option value="4">Manually Tesselated Triangle</option> -->
                     <!-- <option value="5">Auto-Tesselated Triangle</option> -->
                 </select>
                 <select id="program" name="program">
