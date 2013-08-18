@@ -141,10 +141,17 @@ ol.webglnew.WebGL.prototype = {
         var result = gl.createShader(type);
         gl.shaderSource(result, sourceCode);
         gl.compileShader(result);
-
+/*
+        var chromeWinDbg = gl.getExtension('WEBGL_debug_shaders');
+        if (chromeWinDbg) {
+            this.error('------------------- HLSL Source:\n' +
+                       chromeWinDbg.getTranslatedShaderSource(result));
+        } 
+*/
         if (! gl.getShaderParameter(result, goog.webgl.COMPILE_STATUS))
         {
             this.error(gl.getShaderInfoLog(result));
+
             gl.deleteShader(result);
             result = null;
         }
