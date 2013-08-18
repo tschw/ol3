@@ -12,6 +12,7 @@
                 var sum = 0;
                 for (var i = 0; i < 2500; ++i) {
                     for (var j = 0; j < 2000; ++j) {
+
                         sum += Math.sqrt(i*i + j*j);
                     }
                 }
@@ -58,10 +59,36 @@
                 }
                 resultLog.push('Store via typed arrays, got result ' + sum[0] + ' time: ' + (Date.now() - startTime));
                 resultLog.push('');
-                resultLog.push('Load:store ratio in the test is ~ 10:1');
+                resultLog.push('Load:store ratio in above tests is ~ 10:1');
                 resultLog.push('Writing to typed arrays is suprisingly slow on some browsers.');
+                resultLog.push('');
+                resultLog.push('');
+
+                startTime = Date.now();
+                arr = [];
+                for (var i = 0; i < 5000000; ++i) {
+                    arr.push(0);
+                }
+                resultLog.push('Fill via push to empty array, time: ' + (Date.now() - startTime));
+                
+                startTime = Date.now();
+                arr = [];
+                for (var i = 0; i < 5000000; ++i) {
+                    arr[i] = 1;
+                }
+                resultLog.push('Fill via subscript on empty array, time: ' + (Date.now() - startTime));
+
+                startTime = Date.now();
+                arr =      new Array(4999999);
+                for (var i = 0; i < 5000000; ++i) {
+                    arr[i] = 1;
+                }
+                resultLog.push('Fill via Subscript (size set in array ctor), time: ' + (Date.now() - startTime));
+
+
 
                 document.getElementById('results').innerHTML = resultLog.join('<br/>\n');
+
             }
 
         </script>
