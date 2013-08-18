@@ -10,36 +10,57 @@
 
                 var startTime = Date.now();
                 var sum = 0;
-                for (var i = 0; i < 1000; ++i) {
-                    for (var j = 0; j < 1000; ++j) {
-
+                for (var i = 0; i < 2500; ++i) {
+                    for (var j = 0; j < 2000; ++j) {
                         sum += Math.sqrt(i*i + j*j);
                     }
                 }
-                resultLog.push('Test w local scope variables, got sum ' + sum + ' time: ' + (Date.now() - startTime));
-
-                startTime = Date.now();
-                var arr = new Uint32Array(2);
-                var arr2 = new Float32Array(1);
-                arr2[0] = 0;
-                for (arr[0] = 0; arr[0] < 1000; ++arr[0]) {
-                    for (arr[1] = 0; arr[1] < 1000; ++arr[1]) {
-                        arr2[0] += Math.sqrt(arr[0]*arr[0] + arr[1]*arr[1]);
-                    }
-                }
-                resultLog.push('Test w typed arrays, got sum ' + arr2[0] + ' time: ' + (Date.now() - startTime));
-                document.getElementById('results').innerHTML = resultLog.join('<br/>\n');
+                resultLog.push('All ld/st access via local scope variables, got result ' + sum + ' time: ' + (Date.now() - startTime));
 
                 startTime = Date.now();
                 arr = [0,0];
-                arr2 = [0];
-                arr2[0] = 0;
-                for (arr[0] = 0; arr[0] < 1000; ++arr[0]) {
-                    for (arr[1] = 0; arr[1] < 1000; ++arr[1]) {
-                        arr2[0] += Math.sqrt(arr[0]*arr[0] + arr[1]*arr[1]);
+                sum = 0;
+                for (arr[0] = 0; arr[0] < 2500; ++arr[0]) {
+                    for (arr[1] = 0; arr[1] < 2000; ++arr[1]) {
+                        sum += Math.sqrt(arr[0]*arr[0] + arr[1]*arr[1]);
                     }
                 }
-                resultLog.push('Test w js arrays, got sum ' + arr2[0] + ' time: ' + (Date.now() - startTime));
+                resultLog.push('Load via javascript arrays, got result ' + sum + ' time: ' + (Date.now() - startTime));
+
+                startTime = Date.now();
+                arr = new Float32Array(2);
+                sum = 0;
+                for (arr[0] = 0; arr[0] < 2500; ++arr[0]) {
+                    for (arr[1] = 0; arr[1] < 2000; ++arr[1]) {
+                        sum += Math.sqrt(arr[0]*arr[0] + arr[1]*arr[1]);
+                    }
+                }
+                resultLog.push('Load via typed arrays, got result ' + sum + ' time: ' + (Date.now() - startTime));
+
+                startTime = Date.now();
+                sum = [0];
+                for (var i = 0; i < 2500; ++i) {
+                    for (var j = 0; j < 2000; ++j) {
+
+                        sum[0] += Math.sqrt(i*i + j*j);
+                    }
+                }
+                resultLog.push('Store via javascript arrays, got result ' + sum[0] + ' time: ' + (Date.now() - startTime));
+
+                startTime = Date.now();
+                sum = new Float32Array(1);
+                sum[0] = 0;
+                for (var i = 0; i < 2500; ++i) {
+                    for (var j = 0; j < 2000; ++j) {
+
+                        sum[0] += Math.sqrt(i*i + j*j);
+                    }
+                }
+                resultLog.push('Store via typed arrays, got result ' + sum[0] + ' time: ' + (Date.now() - startTime));
+                resultLog.push('');
+                resultLog.push('Load:store ratio in the test is ~ 10:1');
+                resultLog.push('Writing to typed arrays is suprisingly slow on some browsers.');
+
                 document.getElementById('results').innerHTML = resultLog.join('<br/>\n');
             }
 

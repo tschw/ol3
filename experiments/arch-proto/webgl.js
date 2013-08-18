@@ -64,9 +64,14 @@ ol.webglnew.WebGL.prototype = {
      *          the vertex shader.
      * @param {String or Object} vert GL shader object or source code for
      *          for fragment shader.
+     * @param {Array} opt_attributeNames Array of strings. The order of 
+     *      the array reflects the sought order of vertex attribute
+     *      locations.
+     *      Use an element of the kind '{name: "Attribute", size: 4}'
+     *      to e,g, denote a wide attribute of type 'mat4'.
      * @return {Object} GL program object or 'null' on error.
      */
-    linkProgram: function(vert, frag)
+    linkProgram: function(vert, frag, opt_attributeNames)
     {
         var gl = this.context;
 
@@ -81,6 +86,22 @@ ol.webglnew.WebGL.prototype = {
             var result = gl.createProgram();
             gl.attachShader(result, vert);
             gl.attachShader(result, frag);
+
+            if (opt_attributeNames) {
+                var attrIndex = 0;
+                for (var i = 0, n = opt_attributeNames.length; i < n; ++i) {
+                    var name = opt_attributeNames[i], size = 1;
+
+                    if (! goog.isString(name)) { 
+                        size = name.size || 1;
+                        name = name.name;
+                    }
+
+                    gl.bindAttribLocation(result, attrIndex, name);
+                    attrIndex += size;
+                }
+            }
+
             gl.linkProgram(result);
 
             // error handling
@@ -101,15 +122,18 @@ ol.webglnew.WebGL.prototype = {
      * Fetch all active attributes of the given program from the GL.
      *
      * @param {Object} program GL program object.
-     * @return {Array} An array of 'WebGLActiveInfo' structures,
-     *      each containing the 'size' (number of elements), 
-     *      a 'type' constant (e.g. 'gl.FLOAT'), and the 'name'.
+     * @return {Object} Slot info objects (see 'slotInfo method') by name.
      */
     programAttributes: function(program) {
-        var result = [], n, gl = this.context;
+        var result = {}, n, gl = this.context;
         n = gl.getProgramParameter(program, goog.webgl.ACTIVE_ATTRIBUTES);
-        for (var i = 0; i < n; ++i) 
-            result.push( gl.getActiveAttrib(program, i) );
+        for (var i = 0; i < n; ++i)  {
+            var activeInfo = gl.getActiveAttrib(program, i);
+            var name = activeInfo.name;
+            if (! goog.isDef(result[name])) {
+                result[name] = this.slotInfo(i, activeInfo);
+            }
+        }
         return result;
     },
 
@@ -117,15 +141,18 @@ ol.webglnew.WebGL.prototype = {
      * Fetch all active uniforms of the given program from the GL.
      *
      * @param {Object} program GL program object.
-     * @return {Array} An array of 'WebGLActiveInfo' structures,
-     *      each containing the 'size' (number of elements), 
-     *      a 'type' constant (e.g. 'gl.FLOAT'), and the 'name'.
+     * @return {Object} Slot info objects (see 'slotInfo method') by name.
      */
     programUniforms: function(program) {
-        var result = [], n, gl = this.context;
+        var result = {}, n, gl = this.context;
         n = gl.getProgramParameter(program, goog.webgl.ACTIVE_UNIFORMS);
-        for (var i = 0; i < n; ++i) 
-            result.push( gl.getActiveUniform(program, i) );
+        for (var i = 0; i < n; ++i)  {
+            var activeInfo = gl.getActiveUniform(program, i);
+            var name = activeInfo.name;
+            if (! goog.isDef(result[name])) {
+                result[name] = this.slotInfo(i, activeInfo);
+            }
+        }
         return result;
     },
 
@@ -176,148 +203,110 @@ ol.webglnew.WebGL.prototype = {
      * Create an object representing a vertex buffer format using a strided
      * layout.
      *
-     * @param {Array} attributeOrder Array of strings. The order of the array
+     * @param {Array} attributeNames Array of strings. The order of the array
      *      reflects the sought order of vertex attributes within the buffer.
      *      Use an element of the kind '{name: "Attribute", normalized: true}'
      *      to denote that an attribute should be normalized.
      * @param {Array} attribsOrProgram Array of 'WebGLActiveInfo' objects as
      *      returned by 'attributesInfo' or GL program object in which case 
      *      the information is derived from it.
-     * @return {Object} Meta information used by other operations.
+     * @return {Array} Array of argument arrays for 'vertexAttribPointer'. 
      */
-    vertexFormat: function(attributeOrder, attribsOrProgram) {
+    vertexFormat: function(attributeNames, attribsOrProgram) {
 
-        var layout = [], names = goog.clone(attributeOrder);
+        var result = [];
         // assume program when second arg is no array and get vertex attributes
         var attribs = (! goog.isArray(attribsOrProgram) 
                 ? this.programAttributes(attribsOrProgram)
                 : attribsOrProgram);
 
-        // store shader index by name and determine total record size 
-        var attrIndexByName = { }, recordSize = 0;
-        for (var i = 0, n = attribs.length; i < n; ++i) {
-            var glActInf = attribs[i];
+        // calculate stride
+        for (var i = 0, n = attributeNames.length; i < n; ++i) {
 
-            attrIndexByName[glActInf.name] = i;
-            recordSize += this.attributeByteSize(glActInf);
-        }
-        // create the layout (array of 'vertexAttribPointer' argument arrays)
-        var offset = 0;
-        for (var i = 0, n = names.length; i < n; ++i) {
-            var attrName = names[i], normalized = false;
+            var attrName = attributeNames[i];
             if (! goog.isString(attrName)) {
-                normalized = attrName.normalized;
-                attrName = names[i] = attrName.name;
+                attrName = attrName.name;
             }
-            var attrIndex = attrIndexByName[attrName];
-            delete attrIndexByName[attrName];
-            var glActInf = attribs[attrIndex];
-            layout.push([attrIndex, glActInf.size, glActInf.type, 
-                         normalized, recordSize, offset ]);
-            offset += this.attributeByteSize(glActInfo);
+            recordSize += attribs[attrName].nBytes;
         }
-        // unused attributes?
-        if (! goog.object.isEmpty(attrIndexByName)) {
 
-            this.warning('Unused vertex attributes in vertex format', 
-                         attrIndexByName);
-
-            // stride was overestimated, subtract space for leftover attributes
-            for (var k in attrIndexByName) {
-                var glActInf = attribs[ attrIndexByName[k] ];
-                recordSize -= this.attributeByteSize(glActInfo);
+        // create the layout (array of 'vertexAttribPointer' arguments)
+        var offset = 0;
+        for (var i = 0, n = attributeNames.length; i < n; ++i) {
+            var attrName = attributeNames[i], normalized = false;
+            if (! goog.isString(attrName)) {
+                attrName = attrName.name;
+                normalized = attrName.normalized || false;
             }
-            // correct stride in result array
-            for (var i = 0, n = layout.length; i < n; ++i)
-                layout[i][4] = recordSize;
-        }
-        return {
-            attributeNames: names,
-            bytesPerRecord: recordSize,
-            bufferLayout: layout 
-        };
-    },
-
-    /**
-     * Create a host-side buffer and corresponding views according to a 
-     * given vertex format.
-     * 
-     * @param {Object} vertexFormat Object as returned by 'vertexFormat'.
-     * @param {Number} vertexCount Number of vertices to allocate.
-     * @return {Object} Object holding an 'ArrayBuffer' of 'rawBytes' and
-     *      another two further members per attribute suffixed with 'View'
-     *      and 'Stride' that provide means to access the buffer.
-     */
-    hostVertexBuffer: function(vertexFormat, vertexCount) {
-
-        var result = { };
-        var recordSize = vertexFormat.bytesPerRecord;
-        result.rawBytes = new ArrayBuffer(vertexCount * recordSize);
-        for (var i = 0, n = vertexFormat.names; i < n; ++i) {
-
-            var name = vertexFormat.names[i],
-                vertexAttribPointer = vetexFormat.layout[i];
-
-            var nElems = vertexAttribPointer[1],
-                glType = vertexAttribPointer[2],
-                offset = vertexAttribPointer[5];
-
-            var typeInfo = this.GL_TYPE_INFO[glType];
-
-            var elemSize = elementSize(glType);
-            if (recordSize % elemSize != 0) 
-                throw name + 'Stride breaks WebGL layout constraints.';
-
-            result[name + 'View'] = typedArayView(glType).call(
-                    null, result.rawBytes, offset, vertexCount);
-
-            result[name + 'Stride'] = recordSize / elemSize;
+            var inf = attribs[attrName];
+            result.push([inf.index, inf.nElements, inf.type,
+                         normalized, recordSize, offset]);
+            offset += inf.nBytes;
         }
         return result;
     },
 
     /**
-     * Prepare rendering using the given vertex format.
+     * Enables all vertex attribute arrays contained in the given
+     * vertex format representation.
      *
-     * @param {Object} vertexFormat Vertex format to use.
+     * @param {Array} Vertex format as returned by 'vertexFormat'.
      */
-    activateVertexFormat: function(vertexFormat) {
-
-        var gl = this.context, layout = vertexFormat.layout;
-        for (var i = 0, n = layout.length; i < n; ++i) {
-
-            var vertexAttribPointerArgs = layout[i];
-
-            gl.enableVertexAttribIndex(vertexAttribPointerArgs[0]);
-            gl.vertexAttribArray.apply(gl, vertexAttribPointerArgs);
+    enableVertexAttribArrays: function(vertexFormat) {
+        for (var gl = this.context, 
+                 i = 0, n = vertexFormat.length; i < n; ++i) {
+            gl.enableVertexAttribArray(vertexFormat[i][0]);
         }
     },
 
     /**
-     * Disables all vertex attribute arrays used by the given
-     * vertex format.
+     * Disables all vertex attribute arrays contained in the given
+     * vertex format representation.
      *
-     * @param {Object} vertexFormat Vertex format to use.
+     * @param {Array} Vertex format as returned by 'vertexFormat'.
      */
-    deactivateVertexFormat: function(vertexFormat) {
-
-        var gl = this.context, layout = vertexFormat.layout;
-        for (var i = 0, n = layout.length; i < n; ++i) {
-            gl.disableVertexAttribArray(layout[i][0]);
+    disableVertexAttribArrays: function(vertexFormat) {
+        for (var gl = this.context, 
+                 i = 0, n = vertexFormat.length; i < n; ++i) {
+            gl.enableVertexAttribArray(vertexFormat[i][0]);
         }
     },
 
 
     /**
-     * Determine the required size in bytes from a 'WebGLActiveInfo' object.
+     * Prepare the currently bound vertex buffer for rendering 
+     * using the given vertex format by issuing the calls to 
+     * 'vertexAttribPointer'.
      *
-     * @param {Object} glActiveInfo Meta information for attributes and 
-     *      uniforms.
-     * @return {Number} Number of bytes.
+     * @param {Array} Vertex format as returned by 'vertexFormat'.
      */
-    attributeByteSize: function(glActiveInfo) {
-        return glActiveInfo.size * this.elementSize(glActiveInfo.type);
+    activateVertexBuffer: function(vertexFormat) {
+        for (var gl = this.context, 
+                 i = 0, n = vertexFormat.length; i < n; ++i) {
+            gl.vertexAttribPointer.apply(gl, vertexFormat[i]);
+        }
     },
+
+
+    /**
+     * Returns an object that describes uniforms or vertex attribute
+     * slots.
+     *
+     * @param {WebGlActiveInfo} GL info structure.
+     * @param {Number} slotIndex Slot index.
+     * @return {Object} Object containing 'name', 'index', 'type',
+     *          'nElements', 'bytesPerElement', and 'nBytes'.
+     */
+    slotInfo: function(slotIndex, activeInfo) {
+
+        this.elementSize(glActiveInfo.type);
+        return {
+            name: activeInfo.name, index: slotIndex, type: activeInfo.type,
+            nElements: activeInfo.size, bytesPerElement: elementSize,
+            nBytes: activeInfo.size * elementSize
+        };
+    },
+
 
     /**
      * Provide typed array view type for a specific GL type constant.

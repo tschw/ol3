@@ -1,0 +1,91 @@
+
+
+Batch:
+
+    string typeName;
+    array< Number > vertices; // program knows format
+    array< Number > indices; // or null
+    array< tuple< funcName, args> >  procedure; 
+    // tuple< > denotes modulated-typed data
+
+GpuBatch:
+
+    Program program;
+    GLObject vertices;
+    GLObject indices; // or null
+    array< tuple< funcName, args> >  procedure;
+
+
+Program:
+
+    GLObject glObject; // OpenGL resource handle
+    array< array< attrib-pointer-arguments > > vertexBufferLayout;
+    array< extraAttribLayout >
+
+BatchType:
+
+    string name;
+    string vsSource;
+    string fsSource;
+    array<string> styleAttributes
+    array<string> vertexAttributes
+
+    Program program;
+    Ctor builder;
+
+BatchingStrategy:
+
+    _shaderPreamble
+    _attrNamesAll
+    _attrNamesArray
+
+    builderMixin:
+
+        _nextPrimitive (many calls):
+            - emit code to change attribs           HOW KNOW TYPE/SIZE? _program
+            - emit drawArrays / drawElements
+            - base()
+
+        _setAttribs(layout, data) [private]
+    --
+
+        _nextPrimitive (redundant data):
+            - complete vertex buffer with attribs   HOW KNOW OFFSET? _program
+            - base()
+
+        _releaseBatch
+            - emit drawArrays / drawElements
+            - return base()
+
+    --
+
+        _nextPrimitive (style texture)
+            - create attrib block if unique
+            - complete vertex buffer with ref id, attach meta info (NYI)
+
+        _releaseBatch
+            - emit drawArrays / drawElements
+
+
+AbstractBatchBuilder:
+
+    void _nextPrimitive()           OK
+    void _drawCalls(nVert, nInd)    OK
+
+
+    _attribsBlock       **** from derived
+
+    _vertexBuffer       OK
+    _vertexOffset       OK
+    _vertexStride       **** from strategy
+
+    _indexBuffer        OK
+    _indexOffset        OK
+
+    _procedure          OK
+
+
+
+
+
+

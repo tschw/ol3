@@ -8,7 +8,7 @@ function Application() {
 
         var gl = new ol.webglnew.WebGL($('#webgl-canvas')[0], { 
             alpha: true, blend: true, stencil: false, antialias: false,
-            premultilpiedAlpha: false, preserveDrawingBuffer: false });
+            premultilpiedAlpha: true, preserveDrawingBuffer: false });
         if (gl != null) this.gl = gl;
         else $('#app-panel,#webgl-init-failed').toggleClass('invisible');
     }
@@ -113,7 +113,7 @@ Application.prototype = {
 
         var fragShaderSourceBuilder = [ '#version 100' ];
         if (gl.getContextAttributes().premultipliedAlpha) {
-          //  fragShaderSourceBuilder.push('#define PREMULTIPLY_BY_ALPHA 1');
+            fragShaderSourceBuilder.push('#define PREMULTIPLY_BY_ALPHA 1');
         }
         fragShaderSourceBuilder.push(fragShaderSource);
         this._programs.push(this._polyShaderDesc(
@@ -135,27 +135,71 @@ Application.prototype = {
         this._models = [ ];
 
         this._models.push({ 
-            vbuf: this.gl.buffer(this._expandLine(this._LINE_COORDS1, 0.0625)),
+            vbuf: this.gl.buffer(new Float32Array(this._expandLine(this._LINE_COORDS1))),
             ibuf: null,
             tess: goog.webgl.TRIANGLE_STRIP,
             n: this._LINE_COORDS1.length });
 
         this._models.push({
-            vbuf: this.gl.buffer(this._expandLine(this._LINE_COORDS1, 0.0625, true)),
+            vbuf: this.gl.buffer(new Float32Array(this._expandLine(this._LINE_COORDS1, true))),
             ibuf: null,
             tess: goog.webgl.TRIANGLE_STRIP,
             n: this._LINE_COORDS1.length + 2 });
 
         var nFirst = this._LINE_COORDS1.length * 3; 
-        var vertices = new Float32Array(nFirst + 6 + this._LINE_COORDS2.length * 3 + 6);
-        this._expandLine(this._LINE_COORDS1, 0.0625, false, vertices);
-        for (var i = nFirst, n = nFirst + 6; i < n; ++i) vertices[i] = 3.0;
-        this._expandLine(this._LINE_COORDS2, 0.0625, true, vertices, nFirst + 6);
+        var vertices = this._expandLine(this._LINE_COORDS1);
+        this._expandLine(this._LINE_COORDS2, true, vertices);
         this._models.push({
-            vbuf: this.gl.buffer(vertices),
+            vbuf: this.gl.buffer(new Float32Array(vertices)),
             ibuf: null,
             tess: goog.webgl.TRIANGLE_STRIP,
-            n: this._LINE_COORDS1.length + 2 + this._LINE_COORDS2.length + 2});
+            n: vertices.length / 3 - 4
+        });
+
+        var data = this._tomsTestData(1/20);
+        vertices = [];
+        for(var i = 0; i < data.length; ++i) {
+            var lineString = data[i], flatCoords = [];
+            for (var j = 0; j < lineString.length; ++j) {
+                var coords = lineString[j];
+                flatCoords.push(coords[0]);
+                flatCoords.push(coords[1]);
+            }
+            this._expandLine(flatCoords, false, vertices);
+        }
+        this._models.push({
+            vbuf: this.gl.buffer(new Float32Array(vertices)),
+            ibuf: null,
+            tess: goog.webgl.TRIANGLE_STRIP,
+            n: vertices.length / 3 - 4
+        });
+
+/*
+        this._models.push({
+            vbuf: this.gl.buffer(new Float32Array([
+                 0.00, -0.25, 0 * 4 + 0,
+                +0.25, +0.25, 2 * 4 + 0,
+                -0.25, +0.25, 2 * 4 + 2 ])),
+            ibuf: null,
+            tess: goog.webgl.TRIANGLES,
+            n: 3 });
+
+        this._models.push({
+            vbuf: this.gl.buffer(new Float32Array([
+                 0.00, -0.25, 1 * 4 + 2,
+                +0.25, +0.25, 1 * 4 + 2,
+                -0.25, +0.25, 1 * 4 + 2,
+                    0,     0, 1 * 4 + 1,
+            ])),
+            ibuf: this.gl.buffer(new Uint16Array([0,1,3,2,0]),
+                goog.webgl.ELEMENT_ARRAY_BUFFER),
+            tess: goog.webgl.TRIANGLE_STRIP,
+            n: 5 });
+*/
+
+
+
+
     },
 
     _polyShaderDesc: function(prog) {
@@ -163,15 +207,19 @@ Application.prototype = {
         var gl = this.gl.context;
 
         // Query vertex attributes
-        result.attrPosition = gl.getAttribLocation(prog, 'Position');
+        result.attrPositionP = gl.getAttribLocation(prog, 'PositionP');
+        result.attrPosition0 = gl.getAttribLocation(prog, 'Position0');
+        result.attrPositionN = gl.getAttribLocation(prog, 'PositionN');
         result.attrControl = gl.getAttribLocation(prog, 'Control');
+        result.attrStyle = gl.getAttribLocation(prog, 'Style');
 
         // Query uniforms
 
-        result.uniRotation = gl.getUniformLocation(prog, 'Rotation');
+        result.uniTransform = gl.getUniformLocation(prog, 'Transform');
         result.uniFillColor = gl.getUniformLocation(prog, 'FillColor');
         result.uniStrokeColor = gl.getUniformLocation(prog, 'StrokeColor');
         result.uniRenderParams = gl.getUniformLocation(prog, 'RenderParams');
+        result.uniPixelScale = gl.getUniformLocation(prog, 'PixelScale');
         result.uniScale = gl.getUniformLocation(prog, 'Scale');
         return result;
     },
@@ -186,11 +234,16 @@ Application.prototype = {
             angle = (angle + angleAnim * this._timeSlicer.dt) % (Math.PI * 2);
             $('#rotation-angle').slider('value', angle);
         }
-        var lineWidth = $('#line-width').slider('value');
-        var antiAliasing = $('#anti-aliasing').slider('value');
-        var gamma = $('#gamma').slider('value');
-        var modelIndex = $('#model').val();
-        var programIndex = $('#program').val();
+        var scaleX = $('#scale-x').slider('value'),
+            scaleY = $('#scale-y').slider('value'),
+            lineWidth = $('#line-width').slider('value'),
+            outlineWidth = $('#outline-width').slider('value'),
+            antiAliasing = $('#anti-aliasing').slider('value');
+            gamma = $('#gamma').slider('value');
+        var modelIndex = $('#model').val(),
+            programIndex = $('#program').val();
+        var canvas = $('#webgl-canvas');
+        var pixelScaleX = 2 / canvas.width(), pixelScaleY = 2 / canvas.height();
 
 
         var gl = this.gl.context;
@@ -199,27 +252,47 @@ Application.prototype = {
         // Enable blending.
         gl.enable(goog.webgl.BLEND);
         gl.blendFunc(goog.webgl.SRC_ALPHA, goog.webgl.ONE_MINUS_SRC_ALPHA);
-        gl.useProgram(this._programs[programIndex].glObject); 
 
-        // Setup rotation matrix.
+
+        gl.useProgram(program.glObject); 
+
+        // Setup transformation matrix.
         var cosA = Math.cos(angle), sinA = Math.sin(angle);
-        gl.uniformMatrix2fv(program.uniRotation, false, [ cosA, sinA, -sinA, cosA ]);
+        gl.uniformMatrix4fv(program.uniTransform, false, [ 
+                cosA * scaleX, sinA * scaleX, 0, 0, 
+               -sinA * scaleY, cosA * scaleY, 0, 0,
+                            0,             0, 1, 0,
+                            0,             0, 0, 1
+        ]);
 
         // Set uniforms.
-        gl.uniform4f(program.uniFillColor, 0.0, 0.0, 1.0, 1.0);
-        gl.uniform4f(program.uniStrokeColor, 1.0, 0.8, 0.1, 1.0);
-        gl.uniform4f(program.uniRenderParams, lineWidth, antiAliasing, gamma, 1/gamma);
-        gl.uniform2f(program.uniScale, 1/50, 1/10); // TODO make sure this stuff is proper
+        gl.uniform4f(program.uniFillColor, 0.0, 0.0, 1.0, 1.0); // TODO move to style
+        gl.uniform4f(program.uniStrokeColor, 1.0, 0.8, 0.1, 1.0); // TODO move to style
+        gl.uniform3f(program.uniRenderParams, antiAliasing, gamma, 1/gamma);
+        gl.uniform2f(program.uniPixelScale, pixelScaleX, pixelScaleY);
+        gl.uniform2f(program.uniScale, 1/250, 1/250);
+
+        // Set style
+        gl.vertexAttrib2f(program.attrStyle, (lineWidth + antiAliasing) * 0.5, outlineWidth * 0.5);
 
         // Setup buffers and render
         var model = this._models[modelIndex];
         gl.bindBuffer(goog.webgl.ARRAY_BUFFER, model.vbuf);
-        gl.enableVertexAttribArray(program.attrPosition);
-        gl.vertexAttribPointer(program.attrPosition, 2, gl.FLOAT, false, 12, 0);
+        gl.enableVertexAttribArray(program.attrPositionP);
+        gl.vertexAttribPointer(program.attrPositionP, 2, gl.FLOAT, false, 12, 0);
+        gl.enableVertexAttribArray(program.attrPosition0);
+        gl.vertexAttribPointer(program.attrPosition0, 2, gl.FLOAT, false, 12, 24);
+        gl.enableVertexAttribArray(program.attrPositionN);
+        gl.vertexAttribPointer(program.attrPositionN, 2, gl.FLOAT, false, 12, 48);
         gl.enableVertexAttribArray(program.attrControl);
-        gl.vertexAttribPointer(program.attrControl, 1, gl.FLOAT, false, 12, 8);
-
-        gl.drawArrays(model.tess, 0, model.n);
+        gl.vertexAttribPointer(program.attrControl, 1, gl.FLOAT, false, 12, 32);
+        if (! model.ibuf) {
+            gl.drawArrays(model.tess, 0, model.n);
+        } else {
+            gl.bindBuffer(goog.webgl.ELEMENT_ARRAY_BUFFER, model.ibuf);
+            gl.drawElements(model.tess, model.n, 
+                            goog.webgl.UNSIGNED_SHORT, 0); 
+        }
 
         gl.disableVertexAttribArray(program.attrPosition);
         gl.disableVertexAttribArray(program.attrControl);
@@ -228,108 +301,77 @@ Application.prototype = {
         gl.disable(goog.webgl.BLEND);
     },
 
-    _expandLine: function(coords, width, opt_ring, opt_dest, opt_dest_offset) {
+    _expandLine: function(coords, opt_ring, opt_dest) {
 
-        width *= 0.5;
+        var flags = (ol.webglnew.geometry.LF_OUTLINE_INNER |
+                     ol.webglnew.geometry.LF_OUTLINE_OUTER |
+                     (opt_ring ? ol.webglnew.geometry.LF_RING_CLOSED
+                               : ol.webglnew.geometry.LF_LINE_OUTLINE_CAPS));
 
-        var result = opt_dest || new Float32Array(coords.length * 3 + (!opt_ring ? 0 : 6));
-        var k = opt_dest_offset || 0;
+//
+        var result = opt_dest || [];
+        var iLast = coords.length - 2, iFirstSentinel, iLastSentinel;
 
-        // original first position (need this wrapping around on the last)
-        var firstX = coords[0], firstY = coords[1];
+        var surfInner = 4 - (flags &ol.webglnew.geometry.LF_OUTLINE_INNER?4:0),
+            surfOuter = 4 + (flags &ol.webglnew.geometry.LF_OUTLINE_OUTER?4:0),
+            ctrl;
 
-        // first vertex to consider (starting with the last)
-        var iLast = coords.length - 2;
-        var fromX, fromY ,n0X, n0Y;
-        if (! opt_ring) {
-            fromX = firstX, fromY = firstY;
-            firstX = coords[2], firstY = coords[3];
+        if (! (flags & ol.webglnew.geometry.LF_RING)) {
+            iFirstSentinel = 0;
+            iLastSentinel = iLast;
+            ctrl = 1 - (flags &ol.webglnew.geometry.LF_LINE_OUTLINE_CAPS?1:0);
         } else {
-            fromX = coords[iLast], fromY = coords[iLast + 1];
+            iFirstSentinel = iLast;
+            iLastSentinel = 0;
+            ctrl = 1;
         }
-        // first normal
-        var n0X = firstY - fromY, n0Y = fromX - firstX;
-        var f = 1 / Math.sqrt(n0X * n0X + n0Y * n0Y); // 1 / len(n0)
-        n0X *= f; n0Y *= f;
+        var ctrlLast = 2 - ctrl; 
+        
+        result.push( coords[iFirstSentinel] );
+        result.push( coords[iFirstSentinel+1] );
+        result.push( 3 );
+        result.push( coords[iFirstSentinel] );
+        result.push( coords[iFirstSentinel+1] );
+        result.push( 3 );
 
-        var hereX, hereY, toX, toY, n1X, n1Y;
-
-        var ctrl = !opt_ring ? 0 : 4;
         for (var i = 0; i < iLast; i += 2) {
 
-            // fetch coordinates: from -> here -> to
-            hereX = coords[i]; hereY = coords[i+1]; 
-            toX = coords[i+2]; toY = coords[i+3];
+            result.push( coords[i] );
+            result.push( coords[i+1] );
+            result.push( ctrl + surfInner );
+            result.push( coords[i] );
+            result.push( coords[i+1] );
+            result.push( ctrl + surfOuter );
 
-            // calculate normal of here -> to
-            n1X = toY - hereY, n1Y = hereX - toX;
-            f = 1 / Math.sqrt(n1X * n1X + n1Y * n1Y); // 1 / len(n1)
-            n1X *= f; n1Y *= f;
-
-            // create halfway normal for the direction
-            n0X += n1X; n0Y += n1Y;
-            f = 1 / Math.sqrt(n0X * n0X + n0Y * n0Y); // 1 / len(n0)
-            n0X *= f; n0Y *= f;
-
-            // move position by amount and underestimation factor
-            f = width / (n0X * n1X + n0Y * n1Y); // width / dot(n0,n1)
-            n0X *= f; n0Y *= f;
-            result[k++] = hereX - n0X;
-            result[k++] = hereY - n0Y;
-            result[k++] = ctrl;
-            result[k++] = hereX + n0X;
-            result[k++] = hereY + n0Y;
-            result[k++] = ctrl + 2;
-
-            // use now-changed vertex position and one normal in next iteration
-            fromX = hereX; fromY = hereY;
-            n0X = n1X; n0Y = n1Y;
-
-            ctrl = 4;
+            ctrl = 1;
         }
 
-        // once again for the special, last vertex (look ahead wraps around)
+        result.push( coords[iLast] );
+        result.push( coords[iLast+1] );
+        result.push( ctrlLast + surfInner );
+        result.push( coords[iLast] );
+        result.push( coords[iLast+1] );
+        result.push( ctrlLast + surfOuter );
 
-        hereX = coords[iLast]; hereY = coords[iLast+1]; 
-
-        if (! opt_ring) {
-
-            ctrl = 8;
-            n0X *= width; n0Y *= width;
-            result[k++] = hereX - n0X;
-            result[k++] = hereY - n0Y;
-            result[k++] = ctrl;
-            result[k++] = hereX + n0X;
-            result[k++] = hereY + n0Y;
-            result[k++] = ctrl + 2;
-
-        } else {
-
-            // looking ahead means wrapping around
-
-            n1X = firstY - hereY, n1Y = hereX - firstX;
-            f = 1 / Math.sqrt(n1X * n1X + n1Y * n1Y); // 1 / len(n1)
-            n1X *= f; n1Y *= f;
-
-            n0X += n1X; n0Y += n1Y;
-            f = 1 / Math.sqrt(n0X * n0X + n0Y * n0Y); // 1 / len(n0)
-            n0X *= f; n0Y *= f;
-
-            f = width / (n0X * n1X + n0Y * n1Y); // width / dot(n0,n1)
-            n0X *= f; n0Y *= f;
-
-            result[k++] = hereX - n0X;
-            result[k++] = hereY - n0Y;
-            result[k++] = ctrl;
-            result[k++] = hereX + n0X;
-            result[k++] = hereY + n0Y;
-            result[k++] = ctrl + 2;
-            // repeat first vertex
-            var j = opt_dest_offset || 0;
-            for (var i = 0; i < 6; ++i) {
-                result[k++] = result[j++];
-            }
+        if ((flags & ol.webglnew.geometry.LF_RING_CLOSED) 
+                == ol.webglnew.geometry.LF_RING_CLOSED)
+        {
+            result.push( coords[0] );
+            result.push( coords[1] );
+            result.push( ctrl + surfInner );
+            result.push( coords[0] );
+            result.push( coords[1] );
+            result.push( ctrl + surfOuter );
+            iLastSentinel = 2;
         }
+
+        result.push( coords[iLastSentinel] );
+        result.push( coords[iLastSentinel+1] );
+        result.push( 3 );
+        result.push( coords[iLastSentinel] );
+        result.push( coords[iLastSentinel+1] );
+        result.push( 3 );
+
         return result;
     },
 
@@ -341,6 +383,20 @@ Application.prototype = {
         -0.75,-0.5,   -0.5,-0.5,   -0.625,0.0
     ],
 
+    _tomsTestData: function(k) {
+        return ([
+          [[-20 * k, -20 * k], [20 * k, 20 * k]],
+          [[-20 * k, 20 * k], [20 * k, -20 * k]],
+          [[0 * k, 15 * k],
+           [10 * k, 5 * k],
+           [5 * k, 5 * k],
+           [5 * k, -15 * k],
+           [-5 * k, -15 * k],
+           [-5 * k, 5 * k],
+           [-10 * k, 5 * k],
+           [0 * k, 15 * k]]
+        ]);
+    },
 
     // UI
 
@@ -348,7 +404,9 @@ Application.prototype = {
 
         $('#rotation-angle').slider({min: 0, max: Math.PI * 2, value: 0.125, step: 0.0001 });
         $('#rotation-speed').slider({min: 0, max: 1, value: 0, step: 0.0001 });
-        $('#line-width').slider({min: 0.0001, max: 5, value: 1.5, step: 0.0001});
+        $('#scale-x, #scale-y').slider({min: 0.125, max: 10, value: 1.0, step: 0.125});
+        $('#line-width').slider({min: 0.0001, max: 10, value: 1.5, step: 0.0001});
+        $('#outline-width').slider({min: 0.0001, max: 5, value: 1.5, step: 0.0001});
         $('#anti-aliasing').slider({min: 0, max: 5, value: 1.5, step: 0.0001});
         $('#gamma').slider({min: 0.125, max: 10, value: 2.2, step: 0.125});
         $('#grid-size-x').slider({min: 10, max: 999, step: 1, value: 400});
@@ -368,7 +426,7 @@ Application.prototype = {
 
     _onResize: function(e) {
 
-        this.gl.context.viewpoert($(this).width(), $(this).height());
+        this.gl.context.viewport($(this).width(), $(this).height());
     },
 
     // Mouse input
