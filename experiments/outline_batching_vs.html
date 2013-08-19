@@ -22,6 +22,10 @@
 <!--- Polygon Shaders -->
 
 
+
+
+
+
         <script id="webgl-poly-vert" type="x-shader/x-vertex">
 #version 100
 
@@ -37,76 +41,107 @@ attribute vec2 PositionN;
 attribute float Control;
 
 attribute vec2 Style;
-float lineWidth = Style.x;
 
 uniform mat4 Transform;
 uniform vec2 PixelScale;
 
+uniform vec3 RenderParams;
+float antiAliasing = RenderParams.x;
+
 varying vec2 v_Style;
 varying vec2 Surface;
-varying float Invalidator;
+varying float Invalidate;
 
 // ---- Implementation
 
-float removeHighbits(float x, float valueOfLowest) {
-    return x - floor(x / valueOfLowest) * valueOfLowest;
-}
-float extractHighbits(float x, float valueOfLowest) {
-    return floor(x / valueOfLowest);
+vec2 rotateCw(vec2 p) {
+    return vec2(p.y, -p.x);
 }
 
-float zeroToOne(float f) {
-    return f != 0.0 ? f : 1.0;
+vec3 perspDiv(vec4 p) {
+    return p.xyz / p.w;
 }
 
-vec2 ccwNormal(vec2 p) { 
-    return vec2(p.y, -p.x) / zeroToOne(length(p));
-}
-
-vec3 transform(vec2 p) {
-    vec4 tmp = Transform * vec4(p, 0.0, 1.0);
-    return tmp.xyz / tmp.w;
+vec2 safeNormalize(vec2 v) {
+    float frob = dot(v, v);
+    return v * (frob > 0.0 ? inversesqrt(frob) : 0.0);
 }
 
 void main(void) {
 
-    // Apply transform
-    vec2 pP = transform(PositionP).xy;
-    vec2 p0 = transform(Position0).xy;
-    vec2 pN = transform(PositionN).xy;
+    // Basic vertex shader operation
+    gl_Position = Transform * vec4(Position0, 0.0, 1.0);
 
-    // Look at two successive edges and determine direction / factor
-    vec2 eP = ccwNormal(p0 - pP);
-    vec2 eN = ccwNormal(pN - p0);
-    vec2 normal = normalize(eP + eN);
+    if (Control == 12.0) {
+        Invalidate = 1.0;
+        return;
+    }
 
-    // Account for mitering
-    float width = lineWidth / zeroToOne(dot(eN, normal));
-
-    // Decode edge control value to surface coordinates
-    vec2 surface = vec2(extractHighbits(Control, 4.0),
-                        removeHighbits(Control, 4.0));
-
-    // ...where a special value invalidates the vertex
-    float invalidator = max(surface.y - 2.0, 0.0);
-
-    // Sign of the locally horizontal surface coordinate
-    // tells us whether to go left or right
-    width *= zeroToOne(surface.x - 1.0);
-
-    // Transform 
-    vec4 vertex = Transform * vec4(Position0, 0.0, 1.0);
-    vertex.xy += width * normal * PixelScale; 
-
-    // Store varyings
-    gl_Position = vertex;
-    Surface = surface;
-    Invalidator = invalidator;
+    Invalidate = 0.0;
+    Surface = vec2(0.0, 0.0);
     v_Style = Style;
+
+    // Done when not at edge, otherwise the above output
+    // provides default values assumed in the code below
+    if (Control == 0.0) return;
+
+    // Basic varying state
+    float lineWidth = Style.x;
+    float outlineWidth = Style.y;
+
+    // Perform additional transforms
+    vec2 pN = perspDiv(Transform * vec4(PositionN, 0.0, 1.0)).xy;
+    vec2 p0 = perspDiv(gl_Position).xy;
+    vec2 pP = perspDiv(Transform * vec4(PositionP, 0.0, 1.0)).xy;
+
+    // Determine tangents of adjacent edges and at vertex
+    vec2 tP = safeNormalize(p0-pP);
+    vec2 tN = safeNormalize(pN-p0);
+    vec2 tangent = tP + tN;
+
+    vec2 displacement = vec2(0.0);
+
+    // Determine extrusion / surface coordinates in tangential direction
+    // (only at start/end of a line strip, indicated via control flags)
+    float ctrl = Control;
+    if (ctrl >= 4.0) {
+        // Vertical edge?
+
+        if (ctrl >= 8.0) {
+            ctrl -= 4.0; // bit removal - or half of it (see below)
+
+            // Outermost? Displacement towards the outside of the line
+            displacement = (tP - tN) * (antiAliasing + outlineWidth);
+
+            // Let surface coordinate indicate the edge (can use the
+            // same value for both ends as interpolating towards zero in
+            // all cases - subdivision is inherent)
+            Surface.y = 1.0;
+
+            // Tangent is in opposite direction - correect it
+            tangent = -tangent;
+        }
+
+        // Tangent used as reference for mitering is either in opposite
+        // direction or zero - correct it
+        tP = tangent;
+
+        ctrl -= 4.0; // bit removal - done odd to ease data dependencies
+    }
+
+    // Determine extrusion / surface coordinate in normal directions
+    vec2 normal = normalize(rotateCw(tangent));
+    Surface.x = ctrl * 2.0 - 3.0;
+    float horizExtent = lineWidth /         // line width
+            dot(rotateCw(tP), normal) *     // projected along miter
+            Surface.x;                      // sign: left or right
+
+    displacement += horizExtent * normal; 
+    gl_Position.xy += gl_Position.w * displacement * PixelScale;
 }
         </script>
 
-        <script id="webgl-poly-frag" type="x-shader/x-vertex">
+        <script id="webgl-poly-frag" type="x-shader/x-fragment">
 // ---- Configuration
 
 precision mediump float;
@@ -114,11 +149,9 @@ precision mediump float;
 // ---- Interface
 
 varying vec2 Surface;
-varying float Invalidator;
+varying float Invalidate;
 
 varying vec2 v_Style;
-float lineWidth = v_Style.x;
-float outlineWidth = v_Style.y;
 
 uniform vec4 FillColor;
 uniform vec4 StrokeColor;
@@ -137,20 +170,24 @@ float blendCoeff(vec2 edge0, vec2 edge1, vec2 x) {
 }
 
 vec3 gammaApply(vec3 color) {
-    return pow(abs(color), vec3(gamma));
+    return pow(clamp(color, 0.0, 1.0), vec3(gamma));
 }
 
 vec3 gammaCorrect(vec3 color) {
-    return pow(abs(color), vec3(rcpGamma));
+    return pow(clamp(color, 0.0, 1.0), vec3(rcpGamma));
 }
 
 void main(void) {
 
-    if (Invalidator > 0.0) discard;
+    if (Invalidate > 0.0) discard;
 
-    // Determine distance vector from centerpoint (1;1) surface coordinates
-    // the outer edge of the surface is located at 1
-    vec2 dist = min(abs(Surface - vec2(1.0)), 1.0);
+    float lineWidth = v_Style.x;
+    float outlineWidth = v_Style.y;
+
+    // Distance from center of surface coordinate (keep it this way;
+    // strangely the 'abs' function does not work correctly on all
+    // platforms here)
+    vec2 dist = min(Surface * sign(Surface), 1.0);
 
     // Determine surface scale from screen space derivatives
 #ifdef STANDARD_DERIVATIVES
@@ -205,6 +242,7 @@ void main(void) {
 #ifdef PREMULTIPLY_BY_ALPHA
     color.rgb *= color.a;
 #endif
+
     gl_FragColor = color;
 }
         </script>
@@ -234,6 +272,7 @@ uniform vec2 Scale;
 // ---- Implementation
 
 void main(void) {
+
 
     vec2 surf = fract((gl_FragCoord.xy - Offset) * Scale);
 
@@ -270,10 +309,7 @@ void main(void) {
                     <option value="0">Wide Line</option>
                     <option value="1">Wide Line Ring</option>
                     <option value="2">Wide Line and Ring multibatch</option>
-                    <option value="3">Tom's Line Test</option>
-                    <!-- <option value="3">Single Triangle</option> -->
-                    <!-- <option value="4">Manually Tesselated Triangle</option> -->
-                    <!-- <option value="5">Auto-Tesselated Triangle</option> -->
+                    <option value="3">Tom's Line Test</option> 
                 </select>
                 <select id="program" name="program">
                     <option value="0">without extensions</option>

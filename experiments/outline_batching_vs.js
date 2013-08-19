@@ -138,7 +138,7 @@ Application.prototype = {
             vbuf: this.gl.buffer(new Float32Array(this._expandLine(this._LINE_COORDS1))),
             ibuf: null,
             tess: goog.webgl.TRIANGLE_STRIP,
-            n: this._LINE_COORDS1.length });
+            n: this._LINE_COORDS1.length + 4 });
 
         this._models.push({
             vbuf: this.gl.buffer(new Float32Array(this._expandLine(this._LINE_COORDS1, true))),
@@ -173,34 +173,32 @@ Application.prototype = {
             tess: goog.webgl.TRIANGLE_STRIP,
             n: vertices.length / 3 - 4
         });
-
-/*
-        this._models.push({
-            vbuf: this.gl.buffer(new Float32Array([
-                 0.00, -0.25, 0 * 4 + 0,
-                +0.25, +0.25, 2 * 4 + 0,
-                -0.25, +0.25, 2 * 4 + 2 ])),
-            ibuf: null,
-            tess: goog.webgl.TRIANGLES,
-            n: 3 });
-
-        this._models.push({
-            vbuf: this.gl.buffer(new Float32Array([
-                 0.00, -0.25, 1 * 4 + 2,
-                +0.25, +0.25, 1 * 4 + 2,
-                -0.25, +0.25, 1 * 4 + 2,
-                    0,     0, 1 * 4 + 1,
-            ])),
-            ibuf: this.gl.buffer(new Uint16Array([0,1,3,2,0]),
-                goog.webgl.ELEMENT_ARRAY_BUFFER),
-            tess: goog.webgl.TRIANGLE_STRIP,
-            n: 5 });
-*/
-
-
-
-
     },
+
+
+    _LINE_COORDS1: [ 
+        0, -0.5,   0, 0,   0.25, 0.25,   0.25, 0.5,   0, 0.7,   0, 0.5,   -0.25, 0.4
+    ],
+
+    _LINE_COORDS2: [
+        -0.75,-0.5,   -0.5,-0.5,   -0.625,0.0
+    ],
+
+    _tomsTestData: function(k) {
+        return ([
+          [[-20 * k, -20 * k], [20 * k, 20 * k]],
+          [[-20 * k, 20 * k], [20 * k, -20 * k]],
+          [[0 * k, 15 * k],
+           [10 * k, 5 * k],
+           [5 * k, 5 * k],
+           [5 * k, -15 * k],
+           [-5 * k, -15 * k],
+           [-5 * k, 5 * k],
+           [-10 * k, 5 * k],
+           [0 * k, 15 * k]]
+        ]);
+    },
+
 
     _polyShaderDesc: function(prog) {
         var result = { glObject: prog };
@@ -220,7 +218,6 @@ Application.prototype = {
         result.uniStrokeColor = gl.getUniformLocation(prog, 'StrokeColor');
         result.uniRenderParams = gl.getUniformLocation(prog, 'RenderParams');
         result.uniPixelScale = gl.getUniformLocation(prog, 'PixelScale');
-        result.uniScale = gl.getUniformLocation(prog, 'Scale');
         return result;
     },
 
@@ -238,7 +235,7 @@ Application.prototype = {
             scaleY = $('#scale-y').slider('value'),
             lineWidth = $('#line-width').slider('value'),
             outlineWidth = $('#outline-width').slider('value'),
-            antiAliasing = $('#anti-aliasing').slider('value');
+            antiAliasing = $('#anti-aliasing').slider('value'),
             gamma = $('#gamma').slider('value');
         var modelIndex = $('#model').val(),
             programIndex = $('#program').val();
@@ -270,8 +267,6 @@ Application.prototype = {
         gl.uniform4f(program.uniStrokeColor, 1.0, 0.8, 0.1, 1.0); // TODO move to style
         gl.uniform3f(program.uniRenderParams, antiAliasing, gamma, 1/gamma);
         gl.uniform2f(program.uniPixelScale, pixelScaleX, pixelScaleY);
-        gl.uniform2f(program.uniScale, 1/250, 1/250);
-
         // Set style
         gl.vertexAttrib2f(program.attrStyle, (lineWidth + antiAliasing) * 0.5, outlineWidth * 0.5);
 
@@ -294,7 +289,9 @@ Application.prototype = {
                             goog.webgl.UNSIGNED_SHORT, 0); 
         }
 
-        gl.disableVertexAttribArray(program.attrPosition);
+        gl.disableVertexAttribArray(program.attrPositionN);
+        gl.disableVertexAttribArray(program.attrPosition0);
+        gl.disableVertexAttribArray(program.attrPositionP);
         gl.disableVertexAttribArray(program.attrControl);
 
         // Disable blending
@@ -303,100 +300,168 @@ Application.prototype = {
 
     _expandLine: function(coords, opt_ring, opt_dest) {
 
-        var flags = (ol.webglnew.geometry.LF_OUTLINE_INNER |
-                     ol.webglnew.geometry.LF_OUTLINE_OUTER |
-                     (opt_ring ? ol.webglnew.geometry.LF_RING_CLOSED
-                               : ol.webglnew.geometry.LF_LINE_OUTLINE_CAPS));
-
-//
-        var result = opt_dest || [];
-        var iLast = coords.length - 2, iFirstSentinel, iLastSentinel;
-
-        var surfInner = 4 - (flags &ol.webglnew.geometry.LF_OUTLINE_INNER?4:0),
-            surfOuter = 4 + (flags &ol.webglnew.geometry.LF_OUTLINE_OUTER?4:0),
-            ctrl;
-
-        if (! (flags & ol.webglnew.geometry.LF_RING)) {
-            iFirstSentinel = 0;
-            iLastSentinel = iLast;
-            ctrl = 1 - (flags &ol.webglnew.geometry.LF_LINE_OUTLINE_CAPS?1:0);
-        } else {
-            iFirstSentinel = iLast;
-            iLastSentinel = 0;
-            ctrl = 1;
+        var dst = opt_dest || [];
+        if (opt_ring) {
+            coords = coords.slice(0, coords.length);
+            coords.push(coords[0]);
+            coords.push(coords[1]);
         }
-        var ctrlLast = 2 - ctrl; 
-        
-        result.push( coords[iFirstSentinel] );
-        result.push( coords[iFirstSentinel+1] );
-        result.push( 3 );
-        result.push( coords[iFirstSentinel] );
-        result.push( coords[iFirstSentinel+1] );
-        result.push( 3 );
+        this.expandLineString_(dst, coords, 0, coords.length, 2);
+        return dst;
 
-        for (var i = 0; i < iLast; i += 2) {
-
-            result.push( coords[i] );
-            result.push( coords[i+1] );
-            result.push( ctrl + surfInner );
-            result.push( coords[i] );
-            result.push( coords[i+1] );
-            result.push( ctrl + surfOuter );
-
-            ctrl = 1;
-        }
-
-        result.push( coords[iLast] );
-        result.push( coords[iLast+1] );
-        result.push( ctrlLast + surfInner );
-        result.push( coords[iLast] );
-        result.push( coords[iLast+1] );
-        result.push( ctrlLast + surfOuter );
-
-        if ((flags & ol.webglnew.geometry.LF_RING_CLOSED) 
-                == ol.webglnew.geometry.LF_RING_CLOSED)
-        {
-            result.push( coords[0] );
-            result.push( coords[1] );
-            result.push( ctrl + surfInner );
-            result.push( coords[0] );
-            result.push( coords[1] );
-            result.push( ctrl + surfOuter );
-            iLastSentinel = 2;
-        }
-
-        result.push( coords[iLastSentinel] );
-        result.push( coords[iLastSentinel+1] );
-        result.push( 3 );
-        result.push( coords[iLastSentinel] );
-        result.push( coords[iLastSentinel+1] );
-        result.push( 3 );
-
-        return result;
     },
 
-    _LINE_COORDS1: [ 
-        0, -0.5,   0, 0,   0.25, 0.25,   0.25, 0.5,   0, 0.7,   0, 0.5,   -0.25, 0.4
-    ],
+    // Prototypical library code
 
-    _LINE_COORDS2: [
-        -0.75,-0.5,   -0.5,-0.5,   -0.625,0.0
-    ],
-
-    _tomsTestData: function(k) {
-        return ([
-          [[-20 * k, -20 * k], [20 * k, 20 * k]],
-          [[-20 * k, 20 * k], [20 * k, -20 * k]],
-          [[0 * k, 15 * k],
-           [10 * k, 5 * k],
-           [5 * k, 5 * k],
-           [5 * k, -15 * k],
-           [-5 * k, -15 * k],
-           [-5 * k, 5 * k],
-           [-10 * k, 5 * k],
-           [0 * k, 15 * k]]
-        ]);
+    surfaceFlags_: {
+        NOT_AT_EDGE: 0, 
+        EDGE_LEFT: 1,
+        EDGE_RIGHT: 2, 
+        LAST_INNER: 4,
+        LAST_OUTER: 8,
+        NO_RENDER: 12
     },
+
+    expandLinearRing_: function(dst, coords, offset, end, stride, nDimensions, forPolygon) {
+
+        // Won't need a left edge when using CCW winding for the
+        // outside contours and CW winding for inside contours of
+        // polygons
+        var leftEdge = ! forPolygon ? 
+                this.surfaceFlags_.EDGE_LEFT :
+                this.surfaceFlags_.NOT_AT_EDGE;
+
+        var i, j = end - stride;
+        var e = j + nDimensions;
+
+        // Last coord on start sentinel (for proper miters)
+        for (i = j; i != e; ++i) dst.push(coords[i]);
+        dst.push(this.surfaceFlags_.NO_RENDER);
+        for (i = j; i != e; ++i) dst.push(coords[i]);
+        dst.push(this.surfaceFlags_.NO_RENDER);
+
+        // Line string from coordinates
+        for (j = offset; j != end; j += stride) {
+
+            e = j + nDimensions;
+            for (i = j; i != e; ++i) dst.push(coords[i]);
+            dst.push(leftEdge);
+            for (i = j; i != e; ++i) dst.push(coords[i]);
+            dst.push(this.surfaceFlags_.EDGE_RIGHT);
+        }
+
+        // Wrap around
+        j = offset;
+        if (! forPolygon) {
+            // Have the wrapped vertex be valid (not a sentinel yet)
+            // in order to close the ring when rendering a strip
+            e = j + nDimensions;
+            for (i = j; i != e; ++i) dst.push(coords[i]);
+            dst.push(leftEdge);
+            for (i = j; i != e; ++i) dst.push(coords[i]);
+            dst.push(this.surfaceFlags_.EDGE_RIGHT);
+            j += stride;
+        }
+        // Next (first or second) on end sentinel
+        e = j + nDimensions;
+        for (i = j; i != e; ++i) dst.push(coords[i]);
+        dst.push(this.surfaceFlags_.NO_RENDER);
+        for (i = j; i != e; ++i) dst.push(coords[i]);
+        dst.push(this.surfaceFlags_.NO_RENDER);
+    },
+
+    expandLineString_: function(dst, coords, offset, end, nDimensions) {
+
+        var last = end - nDimensions;
+        var i, j, e = offset + nDimensions;
+
+        // Assume ring when coordinates of first and last vertex match
+        var isRing = true;
+        for (i = offset, j = last; i != e; ++i, ++j) {
+            if (coords[i] != coords[j]) {
+                isRing = false;
+                break;
+            }
+        }
+        if (isRing) {
+            end -= nDimensions;
+            this.expandLinearRing_(dst, coords, offset, end, 
+                                   nDimensions, nDimensions);
+            return;
+        }
+
+        // Vertex pattern used for lines:
+        // ------------------------------
+        //
+        // L1  R1   L0  R0   L0  R0   L1  R1
+        // ~~~~~~   ======   ------
+        // 
+        // LM  RM   LN  RN   LN  RN   LM  RM
+        //          ------   ======   ~~~~~~
+        // 
+        // \________|_________/             <- info visible in the
+        //     \________|_________/              shader at specific
+        //          \________|_________/         vertices
+        //               \________|_________/  
+        // 
+        // Legend: 
+        //     ~ Sentinel vertex
+        //     = Terminal vertex, outer
+        //     - Terminal vertex, inner
+        //     - N: Last index, M: Second last index
+        // 
+        // Terminal vertices:
+        //     - one of the two adjacent edges is zero
+        //     - sum is the negated actual edge
+        //     - 1st nonzero => start of line
+        //     - 2nd nonzero => end of line
+        //     - difference 1st minus 2nd gives outside direction
+
+        j = offset + nDimensions;
+        e = j + nDimensions;
+        for (i = j; i != e; ++i) dst.push(coords[i]);
+        dst.push(this.surfaceFlags_.NO_RENDER);
+        for (i = j; i != e; ++i) dst.push(coords[i]);
+        dst.push(this.surfaceFlags_.NO_RENDER);
+
+        j = offset;
+        e = j + nDimensions;
+        for (i = j; i != e; ++i) dst.push(coords[i]);
+        dst.push(this.surfaceFlags_.EDGE_LEFT | this.surfaceFlags_.LAST_OUTER);
+        for (i = j; i != e; ++i) dst.push(coords[i]);
+        dst.push(this.surfaceFlags_.EDGE_RIGHT | this.surfaceFlags_.LAST_OUTER);
+        for (i = j; i != e; ++i) dst.push(coords[i]);
+        dst.push(this.surfaceFlags_.EDGE_LEFT | this.surfaceFlags_.LAST_INNER);
+        for (i = j; i != e; ++i) dst.push(coords[i]);
+        dst.push(this.surfaceFlags_.EDGE_RIGHT | this.surfaceFlags_.LAST_INNER);
+
+        for (j = offset + nDimensions; j != last; j = e) {
+
+            e = j + nDimensions;
+            for (i = j; i != e; ++i) dst.push(coords[i]);
+            dst.push(this.surfaceFlags_.EDGE_LEFT);
+            for (i = j; i != e; ++i) dst.push(coords[i]);
+            dst.push(this.surfaceFlags_.EDGE_RIGHT);
+        }
+
+        e = j + nDimensions;
+        for (i = j; i != e; ++i) dst.push(coords[i]);
+        dst.push(this.surfaceFlags_.EDGE_LEFT | this.surfaceFlags_.LAST_INNER);
+        for (i = j; i != e; ++i) dst.push(coords[i]);
+        dst.push(this.surfaceFlags_.EDGE_RIGHT | this.surfaceFlags_.LAST_INNER);
+        for (i = j; i != e; ++i) dst.push(coords[i]);
+        dst.push(this.surfaceFlags_.EDGE_LEFT | this.surfaceFlags_.LAST_OUTER);
+        for (i = j; i != e; ++i) dst.push(coords[i]);
+        dst.push(this.surfaceFlags_.EDGE_RIGHT | this.surfaceFlags_.LAST_OUTER);
+
+        j = last - nDimensions;
+        e = last;
+        for (i = j; i != e; ++i) dst.push(coords[i]);
+        dst.push(this.surfaceFlags_.NO_RENDER);
+        for (i = j; i != e; ++i) dst.push(coords[i]);
+        dst.push(this.surfaceFlags_.NO_RENDER);
+    },
+
 
     // UI
 
@@ -405,8 +470,8 @@ Application.prototype = {
         $('#rotation-angle').slider({min: 0, max: Math.PI * 2, value: 0.125, step: 0.0001 });
         $('#rotation-speed').slider({min: 0, max: 1, value: 0, step: 0.0001 });
         $('#scale-x, #scale-y').slider({min: 0.125, max: 10, value: 1.0, step: 0.125});
-        $('#line-width').slider({min: 0.0001, max: 10, value: 1.5, step: 0.0001});
-        $('#outline-width').slider({min: 0.0001, max: 5, value: 1.5, step: 0.0001});
+        $('#line-width').slider({min: 0.0001, max: 15, value: 5.0, step: 0.0001});
+        $('#outline-width').slider({min: 0, max: 5, value: 1.5, step: 0.0001});
         $('#anti-aliasing').slider({min: 0, max: 5, value: 1.5, step: 0.0001});
         $('#gamma').slider({min: 0.125, max: 10, value: 2.2, step: 0.125});
         $('#grid-size-x').slider({min: 10, max: 999, step: 1, value: 400});
