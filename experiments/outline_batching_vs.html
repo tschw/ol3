@@ -79,15 +79,15 @@ void main(void) {
 
     Invalidate = 0.0;
     Surface = vec2(0.0, 0.0);
-    v_Style = Style;
+
+    float extent = Style.x * 0.5;
+    float fractStrokeWidth = Style.y;
+    v_Style.x = extent + antiAliasing * 0.5;
+    v_Style.y = fractStrokeWidth * (extent + antiAliasing * 1.5);
 
     // Done when not at edge, otherwise the above output
     // provides default values assumed in the code below
     if (Control == 0.0) return;
-
-    // Basic varying state
-    float lineWidth = Style.x;
-    float outlineWidth = Style.y;
 
     // Perform additional transforms
     vec2 pN = perspDiv(Transform * vec4(PositionN, 0.0, 1.0)).xy;
@@ -110,16 +110,16 @@ void main(void) {
         if (ctrl >= 8.0) {
             ctrl -= 4.0; // bit removal - or half of it (see below)
 
-            // Outermost? Displacement towards the outside of the line
-            displacement = (tP - tN) * (antiAliasing + outlineWidth);
+            // Tangent is in opposite direction - correect it
+            tangent = -tangent;
+
+            // Displacement towards the outside of the line
+            displacement = (tP - tN) * max(v_Style.y, antiAliasing);
 
             // Let surface coordinate indicate the edge (can use the
             // same value for both ends as interpolating towards zero in
             // all cases - subdivision is inherent)
             Surface.y = 1.0;
-
-            // Tangent is in opposite direction - correect it
-            tangent = -tangent;
         }
 
         // Tangent used as reference for mitering is either in opposite
@@ -132,7 +132,7 @@ void main(void) {
     // Determine extrusion / surface coordinate in normal directions
     vec2 normal = normalize(rotateCw(tangent));
     Surface.x = ctrl * 2.0 - 3.0;
-    float horizExtent = lineWidth /         // line width
+    float horizExtent = v_Style.x /         // extent (line width / 2)
             dot(rotateCw(tP), normal) *     // projected along miter
             Surface.x;                      // sign: left or right
 
@@ -177,66 +177,61 @@ vec3 gammaCorrect(vec3 color) {
     return pow(clamp(color, 0.0, 1.0), vec3(rcpGamma));
 }
 
+
 void main(void) {
 
     if (Invalidate > 0.0) discard;
-
-    float lineWidth = v_Style.x;
-    float outlineWidth = v_Style.y;
 
     // Distance from center of surface coordinate (keep it this way;
     // strangely the 'abs' function does not work correctly on all
     // platforms here)
     vec2 dist = min(Surface * sign(Surface), 1.0);
 
-    // Determine surface scale from screen space derivatives
-#ifdef STANDARD_DERIVATIVES
-    vec2 dSurfPixX = dFdx(Surface), dSurfPixY = dFdy(Surface);
-    vec2 scale = vec2(length(vec2(dSurfPixX.x, dSurfPixY.x)),
-                      length(vec2(dSurfPixX.y, dSurfPixY.y)));
+    // Determine thresholds in surface coordinates
+    //
+    // 0.0             1.0
+    // |-----------------|
+    // 
+    // +--- extent ---+
+    //         + aa / 2  :
+    //                   :
+    //           |<------|
+    //           : stroke
+    //           |aa->
+    //           |---|
+    // inner edge min / max
+    // 
+    //              |<-aa|
+    // outer edge min
+    //
+    float extent = v_Style.x; // includes aa/2
+    float outlineWidth = v_Style.y; // scaled in vertex shader
+
+#ifndef STANDARD_DERIVATIVES
+    vec2 negScale = vec2(-1.0 / extent, 
+                         -1.0 / max(outlineWidth, antiAliasing));
 #else
-    vec2 scale = vec2(1.0 / lineWidth);
+    // with this extension can determine the gradient length of
+    // each surface coordinate component in pixels
+    vec2 dSurfPixX = dFdx(Surface), dSurfPixY = dFdy(Surface);
+    vec2 negScale = vec2(-length(vec2(dSurfPixX.x, dSurfPixY.x)),
+                         -length(vec2(dSurfPixX1.y, dSurfPixY.y)));
 #endif
 
-    // Determine surface coordinate thresholds:
-    //
-    // 0.0                                     1.0
-    // ... inside.. - edge =#{ border }#= edge -|
-    //              |<---+-->|<-------+-------->|  
-    //              :   \|/  :       \|/        :
-    //              :   /|\  :        |         :
-    vec2 edgeWidth = antiAliasing * scale;
-    //              :        :       /|\        :
-    vec2 outline = outlineWidth * scale;
-    //              :        :        :         :
-    //              :        :        ^<--------|
-    vec2 outerEdgeMin = vec2(1.0) - edgeWidth;
-    //              ^<-------:--------|
-    vec2 innerEdgeMin = outerEdgeMin - outline;
-    //              |--------^
-    vec2 innerEdgeMax = innerEdgeMin + edgeWidth;
-    // When these   ^^^^^^^^^^        ^^^^^^^^^^^ two regions
-    // overlap, the maximum intensity will be below 1.
-    //
-    // Both regions have the same width and provide the input to
-    // the same monotonic function (x=0 for region start).
-    // 
-    // => The result will never be blow zero, and
-    // => there will be no jump discontinuities.
-    // => maximum luminance at min(1.0, LineWidth / AntiAliasing)
+    vec2 negAntiAlias = negScale * antiAliasing;
+    vec2 innerEdgeMin = negScale * outlineWidth + vec2(1.0);
+    vec2 innerEdgeMax = innerEdgeMin - negAntiAlias;
+    vec2 outerEdgeMin = negAntiAlias + vec2(1.0);
 
-    // Determine foreground color
-    vec4 color = mix(FillColor, StrokeColor, blendCoeff(innerEdgeMin, innerEdgeMax, dist));
+    // Blend with stroke color (smooth, inner edge)
+    vec4 color = mix(FillColor, StrokeColor,
+                     blendCoeff(innerEdgeMin, innerEdgeMax, dist));
 
-    // Adjust alpha for anti-aliasing on the outer edge
+    // Adjust alpha for edge smoothing (outer edge)
     color.a = color.a * (1.0 - blendCoeff(outerEdgeMin, vec2(1.0), dist));
 
-    // Obviously - no implicit gamma correction happens on most platforms.
-    // See: http://stackoverflow.com/questions/10843321
-    //
-    // This is only half of it - acutually the proper way would require
-    // a finalizing rendering task, so that blending can be performed
-    // in linearized color space.
+    // Gamma correct here (for now - we'd ideally want to blend in 
+    // a linearized color space)
     color.rgb = gammaCorrect(color.rgb);
 
 #ifdef PREMULTIPLY_BY_ALPHA
@@ -322,7 +317,7 @@ void main(void) {
                 <div class="slider" id="scale-y"></div>
                 <div class="label">Line Width (pixels)</div>
                 <div class="slider" id="line-width"></div>
-                <div class="label">Outline Width (pixels)</div>
+                <div class="label">Outline Width (fractional)</div>
                 <div class="slider" id="outline-width"></div>
                 <div class="label">Anti Aliasing (pixels)</div>
                 <div class="slider" id="anti-aliasing"></div>

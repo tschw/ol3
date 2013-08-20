@@ -268,7 +268,7 @@ Application.prototype = {
         gl.uniform3f(program.uniRenderParams, antiAliasing, gamma, 1/gamma);
         gl.uniform2f(program.uniPixelScale, pixelScaleX, pixelScaleY);
         // Set style
-        gl.vertexAttrib2f(program.attrStyle, (lineWidth + antiAliasing) * 0.5, outlineWidth * 0.5);
+        gl.vertexAttrib2f(program.attrStyle, lineWidth, outlineWidth);
 
         // Setup buffers and render
         var model = this._models[modelIndex];
@@ -470,9 +470,9 @@ Application.prototype = {
         $('#rotation-angle').slider({min: 0, max: Math.PI * 2, value: 0.125, step: 0.0001 });
         $('#rotation-speed').slider({min: 0, max: 1, value: 0, step: 0.0001 });
         $('#scale-x, #scale-y').slider({min: 0.125, max: 10, value: 1.0, step: 0.125});
-        $('#line-width').slider({min: 0.0001, max: 15, value: 5.0, step: 0.0001});
-        $('#outline-width').slider({min: 0, max: 5, value: 1.5, step: 0.0001});
-        $('#anti-aliasing').slider({min: 0, max: 5, value: 1.5, step: 0.0001});
+        $('#line-width').slider({min: 0.0001, max: 15, value: 20.0, step: 0.0001});
+        $('#outline-width').slider({min: 0, max: 1, value: 0.38, step: 0.0001});
+        $('#anti-aliasing').slider({min: 0, max: 5, value: 1.75, step: 0.0001});
         $('#gamma').slider({min: 0.125, max: 10, value: 2.2, step: 0.125});
         $('#grid-size-x').slider({min: 10, max: 999, step: 1, value: 400});
         $('#grid-size-y').slider({min: 10, max: 999, step: 1, value: 400});
