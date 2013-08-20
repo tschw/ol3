@@ -199,6 +199,11 @@ Application.prototype = {
         ]);
     },
 
+    encodeRGB_: function (r,g,b) {
+        return Math.floor(r * 255) * 256 + 
+              Math.floor(g * 255) + 
+              Math.floor(b * 255) / 256;
+    },
 
     _polyShaderDesc: function(prog) {
         var result = { glObject: prog };
@@ -268,7 +273,9 @@ Application.prototype = {
         gl.uniform3f(program.uniRenderParams, antiAliasing, gamma, 1/gamma);
         gl.uniform2f(program.uniPixelScale, pixelScaleX, pixelScaleY);
         // Set style
-        gl.vertexAttrib2f(program.attrStyle, lineWidth, outlineWidth);
+        var opacity = 255; // integer 0..255
+        gl.vertexAttrib4f(program.attrStyle, lineWidth, this.encodeRGB_(0,0,1),
+            opacity + outlineWidth, this.encodeRGB_(1,0.8,0.1));
 
         // Setup buffers and render
         var model = this._models[modelIndex];
