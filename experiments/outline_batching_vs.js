@@ -58,7 +58,7 @@ Application.prototype = {
     MIN_FRAME_DELAY_MS: 12,
     FPS_SECS_TO_AVERAGE: 5,
 
-    MOVE_GRIP_SECS: 2/32, 
+    MOVE_GRIP_SECS: 2/32,
     MOVE_FRICT_SECS: 2,
 
     _veloX: 0, _veloY: 0,
@@ -133,18 +133,24 @@ Application.prototype = {
         // Setup buffers
 
         this._models = [ ];
+        this._POLY_STYLE = this._polyStyle.bind(this);
+        this._LINE_STYLE = this._lineStyle.bind(this);
 
         this._models.push({ 
             vbuf: this.gl.buffer(new Float32Array(this._expandLine(this._LINE_COORDS1))),
             ibuf: null,
             tess: goog.webgl.TRIANGLE_STRIP,
-            n: this._LINE_COORDS1.length + 4 });
+            n: this._LINE_COORDS1.length + 4,
+            style: this._LINE_STYLE
+        });
 
         this._models.push({
             vbuf: this.gl.buffer(new Float32Array(this._expandLine(this._LINE_COORDS1, true))),
             ibuf: null,
             tess: goog.webgl.TRIANGLE_STRIP,
-            n: this._LINE_COORDS1.length + 2 });
+            n: this._LINE_COORDS1.length + 2,
+            style: this._LINE_STYLE
+        });
 
         var nFirst = this._LINE_COORDS1.length * 3; 
         var vertices = this._expandLine(this._LINE_COORDS1);
@@ -153,10 +159,11 @@ Application.prototype = {
             vbuf: this.gl.buffer(new Float32Array(vertices)),
             ibuf: null,
             tess: goog.webgl.TRIANGLE_STRIP,
-            n: vertices.length / 3 - 4
+            n: vertices.length / 3 - 4,
+            style: this._LINE_STYLE
         });
 
-        var data = this._tomsTestData(1/20);
+        var data = this._tomsTestData();
         vertices = [];
         for(var i = 0; i < data.length; ++i) {
             var lineString = data[i], flatCoords = [];
@@ -171,38 +178,53 @@ Application.prototype = {
             vbuf: this.gl.buffer(new Float32Array(vertices)),
             ibuf: null,
             tess: goog.webgl.TRIANGLE_STRIP,
-            n: vertices.length / 3 - 4
+            n: vertices.length / 3 - 4,
+            style: this._LINE_STYLE
         });
-    },
 
+        vertices = this._expandLine(this._dude()[0], true);
+        this._models.push({
+            vbuf: this.gl.buffer(new Float32Array(vertices)),
+            ibuf: null,
+            tess: goog.webgl.TRIANGLE_STRIP,
+            n: vertices.length / 3 - 4,
+            style: this._LINE_STYLE
+        });
 
-    _LINE_COORDS1: [ 
-        0, -0.5,   0, 0,   0.25, 0.25,   0.25, 0.5,   0, 0.7,   0, 0.5,   -0.25, 0.4
-    ],
+        var tri = this._TRIANGLE, indices = [0, 1, 2];
+        vertices = [ 0, 0, 12,   0, 0, 12, 
+                     tri[0], tri[1], 0,  tri[2], tri[3], 0,  tri[4], tri[5], 0, 
+                     0, 0, 12,   0, 0, 12 ];
+        this._models.push({
+            vbuf: this.gl.buffer(new Float32Array(vertices)),
+            ibuf: this.gl.buffer(new Uint16Array(indices),
+                                 goog.webgl.ELEMENT_ARRAY_BUFFER),
+            tess: goog.webgl.TRIANGLES,
+            n: indices.length,
+            style: this._LINE_STYLE
+        });
 
-    _LINE_COORDS2: [
-        -0.75,-0.5,   -0.5,-0.5,   -0.625,0.0
-    ],
+        vertices = [], indices = [];
+        ol.renderer.webgl.gpuData.expandPolygon(vertices, indices, [tri], 2);
+        this._models.push({
+            vbuf: this.gl.buffer(new Float32Array(vertices)),
+            ibuf: this.gl.buffer(new Uint16Array(indices),
+                                 goog.webgl.ELEMENT_ARRAY_BUFFER),
+            tess: goog.webgl.TRIANGLES,
+            n: indices.length,
+            style: this._POLY_STYLE
+        });
 
-    _tomsTestData: function(k) {
-        return ([
-          [[-20 * k, -20 * k], [20 * k, 20 * k]],
-          [[-20 * k, 20 * k], [20 * k, -20 * k]],
-          [[0 * k, 15 * k],
-           [10 * k, 5 * k],
-           [5 * k, 5 * k],
-           [5 * k, -15 * k],
-           [-5 * k, -15 * k],
-           [-5 * k, 5 * k],
-           [-10 * k, 5 * k],
-           [0 * k, 15 * k]]
-        ]);
-    },
-
-    encodeRGB_: function (r,g,b) {
-        return Math.floor(r * 255) * 256 + 
-              Math.floor(g * 255) + 
-              Math.floor(b * 255) / 256;
+        vertices = [], indices = [];
+        ol.renderer.webgl.gpuData.expandPolygon(vertices, indices, this._dude(), 2);
+        this._models.push({
+            vbuf: this.gl.buffer(new Float32Array(vertices)),
+            ibuf: this.gl.buffer(new Uint16Array(indices),
+                                 goog.webgl.ELEMENT_ARRAY_BUFFER),
+            tess: goog.webgl.TRIANGLES,
+            n: indices.length,
+            style: this._POLY_STYLE
+        });
     },
 
     _polyShaderDesc: function(prog) {
@@ -219,8 +241,6 @@ Application.prototype = {
         // Query uniforms
 
         result.uniTransform = gl.getUniformLocation(prog, 'Transform');
-        result.uniFillColor = gl.getUniformLocation(prog, 'FillColor');
-        result.uniStrokeColor = gl.getUniformLocation(prog, 'StrokeColor');
         result.uniRenderParams = gl.getUniformLocation(prog, 'RenderParams');
         result.uniPixelScale = gl.getUniformLocation(prog, 'PixelScale');
         return result;
@@ -255,30 +275,31 @@ Application.prototype = {
         gl.enable(goog.webgl.BLEND);
         gl.blendFunc(goog.webgl.SRC_ALPHA, goog.webgl.ONE_MINUS_SRC_ALPHA);
 
-
         gl.useProgram(program.glObject); 
 
         // Setup transformation matrix.
         var cosA = Math.cos(angle), sinA = Math.sin(angle);
         gl.uniformMatrix4fv(program.uniTransform, false, [ 
-                cosA * scaleX, sinA * scaleX, 0, 0, 
+                cosA * scaleX, sinA * scaleX, 0, 0,
                -sinA * scaleY, cosA * scaleY, 0, 0,
                             0,             0, 1, 0,
                             0,             0, 0, 1
         ]);
 
+        antiAliasing += 0.001;
+
         // Set uniforms.
-        gl.uniform4f(program.uniFillColor, 0.0, 0.0, 1.0, 1.0); // TODO move to style
-        gl.uniform4f(program.uniStrokeColor, 1.0, 0.8, 0.1, 1.0); // TODO move to style
         gl.uniform3f(program.uniRenderParams, antiAliasing, gamma, 1/gamma);
         gl.uniform2f(program.uniPixelScale, pixelScaleX, pixelScaleY);
+
+        var model = this._models[modelIndex];
+
         // Set style
-        var opacity = 255; // integer 0..255
-        gl.vertexAttrib4f(program.attrStyle, lineWidth, this.encodeRGB_(0,0,1),
-            opacity + outlineWidth, this.encodeRGB_(1,0.8,0.1));
+        var style = [];
+        model.style(style, lineWidth, outlineWidth, antiAliasing);
+        gl.vertexAttrib4fv(program.attrStyle, style);
 
         // Setup buffers and render
-        var model = this._models[modelIndex];
         gl.bindBuffer(goog.webgl.ARRAY_BUFFER, model.vbuf);
         gl.enableVertexAttribArray(program.attrPositionP);
         gl.vertexAttribPointer(program.attrPositionP, 2, gl.FLOAT, false, 12, 0);
@@ -292,7 +313,7 @@ Application.prototype = {
             gl.drawArrays(model.tess, 0, model.n);
         } else {
             gl.bindBuffer(goog.webgl.ELEMENT_ARRAY_BUFFER, model.ibuf);
-            gl.drawElements(model.tess, model.n, 
+            gl.drawElements(model.tess, model.n,
                             goog.webgl.UNSIGNED_SHORT, 0); 
         }
 
@@ -313,162 +334,20 @@ Application.prototype = {
             coords.push(coords[0]);
             coords.push(coords[1]);
         }
-        this.expandLineString_(dst, coords, 0, coords.length, 2);
+        ol.renderer.webgl.gpuData.expandLineString(dst, coords, 0, coords.length, 2);
         return dst;
 
     },
 
-    // Prototypical library code
-
-    surfaceFlags_: {
-        NOT_AT_EDGE: 0, 
-        EDGE_LEFT: 1,
-        EDGE_RIGHT: 2, 
-        LAST_INNER: 4,
-        LAST_OUTER: 8,
-        NO_RENDER: 12
+    _lineStyle: function(dst, width, stroke, aa) {
+        ol.renderer.webgl.gpuData.encodeLineStyle(
+            dst, width, this._COLOR1, stroke, this._COLOR2);
     },
 
-    expandLinearRing_: function(dst, coords, offset, end, stride, nDimensions, forPolygon) {
-
-        // Won't need a left edge when using CCW winding for the
-        // outside contours and CW winding for inside contours of
-        // polygons
-        var leftEdge = ! forPolygon ? 
-                this.surfaceFlags_.EDGE_LEFT :
-                this.surfaceFlags_.NOT_AT_EDGE;
-
-        var i, j = end - stride;
-        var e = j + nDimensions;
-
-        // Last coord on start sentinel (for proper miters)
-        for (i = j; i != e; ++i) dst.push(coords[i]);
-        dst.push(this.surfaceFlags_.NO_RENDER);
-        for (i = j; i != e; ++i) dst.push(coords[i]);
-        dst.push(this.surfaceFlags_.NO_RENDER);
-
-        // Line string from coordinates
-        for (j = offset; j != end; j += stride) {
-
-            e = j + nDimensions;
-            for (i = j; i != e; ++i) dst.push(coords[i]);
-            dst.push(leftEdge);
-            for (i = j; i != e; ++i) dst.push(coords[i]);
-            dst.push(this.surfaceFlags_.EDGE_RIGHT);
-        }
-
-        // Wrap around
-        j = offset;
-        if (! forPolygon) {
-            // Have the wrapped vertex be valid (not a sentinel yet)
-            // in order to close the ring when rendering a strip
-            e = j + nDimensions;
-            for (i = j; i != e; ++i) dst.push(coords[i]);
-            dst.push(leftEdge);
-            for (i = j; i != e; ++i) dst.push(coords[i]);
-            dst.push(this.surfaceFlags_.EDGE_RIGHT);
-            j += stride;
-        }
-        // Next (first or second) on end sentinel
-        e = j + nDimensions;
-        for (i = j; i != e; ++i) dst.push(coords[i]);
-        dst.push(this.surfaceFlags_.NO_RENDER);
-        for (i = j; i != e; ++i) dst.push(coords[i]);
-        dst.push(this.surfaceFlags_.NO_RENDER);
+    _polyStyle: function(dst, width, stroke, aa) {
+        ol.renderer.webgl.gpuData.encodePolygonStyle(
+            dst, this._COLOR1, aa, width, this._COLOR2); 
     },
-
-    expandLineString_: function(dst, coords, offset, end, nDimensions) {
-
-        var last = end - nDimensions;
-        var i, j, e = offset + nDimensions;
-
-        // Assume ring when coordinates of first and last vertex match
-        var isRing = true;
-        for (i = offset, j = last; i != e; ++i, ++j) {
-            if (coords[i] != coords[j]) {
-                isRing = false;
-                break;
-            }
-        }
-        if (isRing) {
-            end -= nDimensions;
-            this.expandLinearRing_(dst, coords, offset, end, 
-                                   nDimensions, nDimensions);
-            return;
-        }
-
-        // Vertex pattern used for lines:
-        // ------------------------------
-        //
-        // L1  R1   L0  R0   L0  R0   L1  R1
-        // ~~~~~~   ======   ------
-        // 
-        // LM  RM   LN  RN   LN  RN   LM  RM
-        //          ------   ======   ~~~~~~
-        // 
-        // \________|_________/             <- info visible in the
-        //     \________|_________/              shader at specific
-        //          \________|_________/         vertices
-        //               \________|_________/  
-        // 
-        // Legend: 
-        //     ~ Sentinel vertex
-        //     = Terminal vertex, outer
-        //     - Terminal vertex, inner
-        //     - N: Last index, M: Second last index
-        // 
-        // Terminal vertices:
-        //     - one of the two adjacent edges is zero
-        //     - sum is the negated actual edge
-        //     - 1st nonzero => start of line
-        //     - 2nd nonzero => end of line
-        //     - difference 1st minus 2nd gives outside direction
-
-        j = offset + nDimensions;
-        e = j + nDimensions;
-        for (i = j; i != e; ++i) dst.push(coords[i]);
-        dst.push(this.surfaceFlags_.NO_RENDER);
-        for (i = j; i != e; ++i) dst.push(coords[i]);
-        dst.push(this.surfaceFlags_.NO_RENDER);
-
-        j = offset;
-        e = j + nDimensions;
-        for (i = j; i != e; ++i) dst.push(coords[i]);
-        dst.push(this.surfaceFlags_.EDGE_LEFT | this.surfaceFlags_.LAST_OUTER);
-        for (i = j; i != e; ++i) dst.push(coords[i]);
-        dst.push(this.surfaceFlags_.EDGE_RIGHT | this.surfaceFlags_.LAST_OUTER);
-        for (i = j; i != e; ++i) dst.push(coords[i]);
-        dst.push(this.surfaceFlags_.EDGE_LEFT | this.surfaceFlags_.LAST_INNER);
-        for (i = j; i != e; ++i) dst.push(coords[i]);
-        dst.push(this.surfaceFlags_.EDGE_RIGHT | this.surfaceFlags_.LAST_INNER);
-
-        for (j = offset + nDimensions; j != last; j = e) {
-
-            e = j + nDimensions;
-            for (i = j; i != e; ++i) dst.push(coords[i]);
-            dst.push(this.surfaceFlags_.EDGE_LEFT);
-            for (i = j; i != e; ++i) dst.push(coords[i]);
-            dst.push(this.surfaceFlags_.EDGE_RIGHT);
-        }
-
-        e = j + nDimensions;
-        for (i = j; i != e; ++i) dst.push(coords[i]);
-        dst.push(this.surfaceFlags_.EDGE_LEFT | this.surfaceFlags_.LAST_INNER);
-        for (i = j; i != e; ++i) dst.push(coords[i]);
-        dst.push(this.surfaceFlags_.EDGE_RIGHT | this.surfaceFlags_.LAST_INNER);
-        for (i = j; i != e; ++i) dst.push(coords[i]);
-        dst.push(this.surfaceFlags_.EDGE_LEFT | this.surfaceFlags_.LAST_OUTER);
-        for (i = j; i != e; ++i) dst.push(coords[i]);
-        dst.push(this.surfaceFlags_.EDGE_RIGHT | this.surfaceFlags_.LAST_OUTER);
-
-        j = last - nDimensions;
-        e = last;
-        for (i = j; i != e; ++i) dst.push(coords[i]);
-        dst.push(this.surfaceFlags_.NO_RENDER);
-        for (i = j; i != e; ++i) dst.push(coords[i]);
-        dst.push(this.surfaceFlags_.NO_RENDER);
-    },
-
 
     // UI
 
@@ -477,8 +356,8 @@ Application.prototype = {
         $('#rotation-angle').slider({min: 0, max: Math.PI * 2, value: 0.125, step: 0.0001 });
         $('#rotation-speed').slider({min: 0, max: 1, value: 0, step: 0.0001 });
         $('#scale-x, #scale-y').slider({min: 0.125, max: 10, value: 1.0, step: 0.125});
-        $('#line-width').slider({min: 0.0001, max: 15, value: 20.0, step: 0.0001});
-        $('#outline-width').slider({min: 0, max: 1, value: 0.38, step: 0.0001});
+        $('#line-width').slider({min: 0.0001, max: 10, value: 6.0, step: 0.0001});
+        $('#outline-width').slider({min: 0, max: 1, value: 0.5, step: 0.0001});
         $('#anti-aliasing').slider({min: 0, max: 5, value: 1.75, step: 0.0001});
         $('#gamma').slider({min: 0.125, max: 10, value: 2.2, step: 0.125});
         $('#grid-size-x').slider({min: 10, max: 999, step: 1, value: 400});
@@ -591,7 +470,153 @@ Application.prototype = {
     _SQUARE_INDEX_DATA: new Uint16Array([
         0,1,2,
         0,2,3
-    ])
+    ]),
+
+    _COLOR1: { r: 0, g: 0, b: 255, a: 1 },
+    _COLOR2: { r: 255, g: 248, b: 20, a: 1 },
+
+    _LINE_COORDS1: [ 
+        0, -0.5,   0, 0,   0.25, 0.25,   0.25, 0.5,   0, 0.7,   0, 0.5,   -0.25, 0.4
+    ],
+
+    _LINE_COORDS2: [
+        -0.75,-0.5,   -0.5,-0.5,   -0.625,0.0
+    ],
+
+    _TRIANGLE: [
+        -0.5,-0.25,   0.5,-0.25,   0,0.5
+    ],
+
+    _tomsTestData: function() {
+        var k = 1/20;
+        return ([
+          [[-20 * k, -20 * k], [20 * k, 20 * k]],
+          [[-20 * k, 20 * k], [20 * k, -20 * k]],
+          [[0 * k, 15 * k],
+           [10 * k, 5 * k],
+           [5 * k, 5 * k],
+           [5 * k, -15 * k],
+           [-5 * k, -15 * k],
+           [-5 * k, 5 * k],
+           [-10 * k, 5 * k],
+           [0 * k, 15 * k]]
+        ]);
+    },
+
+    _dude: function() {
+        var kx = 1/250, ky = -1/250, tx = -1.4, ty = 2;
+        return ([
+        // Test data taken from
+        // http://javascript.poly2tri.googlecode.com/hg/index.html
+        [ // contour
+            280.35714 * kx + tx, 648.79075 * ky + ty,
+            286.78571 * kx + tx, 662.8979 * ky + ty,
+            263.28607 * kx + tx, 661.17871 * ky + ty,
+            262.31092 * kx + tx, 671.41548 * ky + ty,
+            250.53571 * kx + tx, 677.00504 * ky + ty,
+            250.53571 * kx + tx, 683.43361 * ky + ty,
+            256.42857 * kx + tx, 685.21933 * ky + ty,
+            297.14286 * kx + tx, 669.50504 * ky + ty,
+            289.28571 * kx + tx, 649.50504 * ky + ty,
+            285 * kx + tx, 631.6479 * ky + ty,
+            285 * kx + tx, 608.79075 * ky + ty,
+            292.85714 * kx + tx, 585.21932 * ky + ty,
+            306.42857 * kx + tx, 563.79075 * ky + ty,
+            323.57143 * kx + tx, 548.79075 * ky + ty,
+            339.28571 * kx + tx, 545.21932 * ky + ty,
+            357.85714 * kx + tx, 547.36218 * ky + ty,
+            375 * kx + tx, 550.21932 * ky + ty,
+            391.42857 * kx + tx, 568.07647 * ky + ty,
+            404.28571 * kx + tx, 588.79075 * ky + ty,
+            413.57143 * kx + tx, 612.36218 * ky + ty,
+            417.14286 * kx + tx, 628.07647 * ky + ty,
+            438.57143 * kx + tx, 619.1479 * ky + ty,
+            438.03572 * kx + tx, 618.96932 * ky + ty,
+            437.5 * kx + tx, 609.50504 * ky + ty,
+            426.96429 * kx + tx, 609.86218 * ky + ty,
+            424.64286 * kx + tx, 615.57647 * ky + ty,
+            419.82143 * kx + tx, 615.04075 * ky + ty,
+            420.35714 * kx + tx, 605.04075 * ky + ty,
+            428.39286 * kx + tx, 598.43361 * ky + ty,
+            437.85714 * kx + tx, 599.68361 * ky + ty,
+            443.57143 * kx + tx, 613.79075 * ky + ty,
+            450.71429 * kx + tx, 610.21933 * ky + ty,
+            431.42857 * kx + tx, 575.21932 * ky + ty,
+            405.71429 * kx + tx, 550.21932 * ky + ty,
+            372.85714 * kx + tx, 534.50504 * ky + ty,
+            349.28571 * kx + tx, 531.6479 * ky + ty,
+            346.42857 * kx + tx, 521.6479 * ky + ty,
+            346.42857 * kx + tx, 511.6479 * ky + ty,
+            350.71429 * kx + tx, 496.6479 * ky + ty,
+            367.85714 * kx + tx, 476.6479 * ky + ty,
+            377.14286 * kx + tx, 460.93361 * ky + ty,
+            385.71429 * kx + tx, 445.21932 * ky + ty,
+            388.57143 * kx + tx, 404.50504 * ky + ty,
+            360 * kx + tx, 352.36218 * ky + ty,
+            337.14286 * kx + tx, 325.93361 * ky + ty,
+            330.71429 * kx + tx, 334.50504 * ky + ty,
+            347.14286 * kx + tx, 354.50504 * ky + ty,
+            337.85714 * kx + tx, 370.21932 * ky + ty,
+            333.57143 * kx + tx, 359.50504 * ky + ty,
+            319.28571 * kx + tx, 353.07647 * ky + ty,
+            312.85714 * kx + tx, 366.6479 * ky + ty,
+            350.71429 * kx + tx, 387.36218 * ky + ty,
+            368.57143 * kx + tx, 408.07647 * ky + ty,
+            375.71429 * kx + tx, 431.6479 * ky + ty,
+            372.14286 * kx + tx, 454.50504 * ky + ty,
+            366.42857 * kx + tx, 462.36218 * ky + ty,
+            352.85714 * kx + tx, 462.36218 * ky + ty,
+            336.42857 * kx + tx, 456.6479 * ky + ty,
+            332.85714 * kx + tx, 438.79075 * ky + ty,
+            338.57143 * kx + tx, 423.79075 * ky + ty,
+            338.57143 * kx + tx, 411.6479 * ky + ty,
+            327.85714 * kx + tx, 405.93361 * ky + ty,
+            320.71429 * kx + tx, 407.36218 * ky + ty,
+            315.71429 * kx + tx, 423.07647 * ky + ty,
+            314.28571 * kx + tx, 440.21932 * ky + ty,
+            325 * kx + tx, 447.71932 * ky + ty,
+            324.82143 * kx + tx, 460.93361 * ky + ty,
+            317.85714 * kx + tx, 470.57647 * ky + ty,
+            304.28571 * kx + tx, 483.79075 * ky + ty,
+            287.14286 * kx + tx, 491.29075 * ky + ty,
+            263.03571 * kx + tx, 498.61218 * ky + ty,
+            251.60714 * kx + tx, 503.07647 * ky + ty,
+            251.25 * kx + tx, 533.61218 * ky + ty,
+            260.71429 * kx + tx, 533.61218 * ky + ty,
+            272.85714 * kx + tx, 528.43361 * ky + ty,
+            286.07143 * kx + tx, 518.61218 * ky + ty,
+            297.32143 * kx + tx, 508.25504 * ky + ty,
+            297.85714 * kx + tx, 507.36218 * ky + ty,
+            298.39286 * kx + tx, 506.46932 * ky + ty,
+            307.14286 * kx + tx, 496.6479 * ky + ty,
+            312.67857 * kx + tx, 491.6479 * ky + ty,
+            317.32143 * kx + tx, 503.07647 * ky + ty,
+            322.5 * kx + tx, 514.1479 * ky + ty,
+            325.53571 * kx + tx, 521.11218 * ky + ty,
+            327.14286 * kx + tx, 525.75504 * ky + ty,
+            326.96429 * kx + tx, 535.04075 * ky + ty,
+            311.78571 * kx + tx, 540.04075 * ky + ty,
+            291.07143 * kx + tx, 552.71932 * ky + ty,
+            274.82143 * kx + tx, 568.43361 * ky + ty,
+            259.10714 * kx + tx, 592.8979 * ky + ty,
+            254.28571 * kx + tx, 604.50504 * ky + ty,
+            251.07143 * kx + tx, 621.11218 * ky + ty,
+            250.53571 * kx + tx, 649.1479 * ky + ty,
+            268.1955 * kx + tx, 654.36208 * ky + ty
+        ], [ // 1st hole
+            332 * kx + tx,  423 * ky + ty,
+            329 * kx + tx,  413 * ky + ty,
+            320 * kx + tx, 423 * ky + ty,
+            325 * kx + tx, 437 * ky + ty
+        ], [ // 2nd hole
+            334.86556 * kx + tx,  478.09046 * ky + ty,
+            339.91632 * kx + tx,  480.11077 * ky + ty,
+            329.8148 * kx + tx,  510.41534 * ky + ty,
+            347.99754 * kx + tx,  480.61584 * ky + ty,
+            338.90617 * kx + tx,  465.96863 * ky + ty,
+            320.72342 * kx + tx,  480 * ky + ty
+        ]]);
+    }
 
 };
 
