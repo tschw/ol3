@@ -139,7 +139,9 @@ ol.renderer.webgl.gpuData.expandPolygon =
         tessy = ol.renderer.webgl.gpuData.gluTesselator_();
   }
 
-  tessy.gluTessBeginPolygon(indices);
+  tessy.gluTessBeginPolygon({ 
+        nDimensions: 2, vertices: vertices, indices: indices,
+        newVertexExtraElements: [0], indexMap: { } });
 
   var vStride = 3;
   var vStride2 = vStride * 2;
@@ -408,8 +410,8 @@ ol.renderer.webgl.gpuData.gluTesselator_ = function() {
                         ol.renderer.webgl.gpuData.tessBeginCallback_);
   tessy.gluTessCallback(libtess.gluEnum.GLU_TESS_ERROR_DATA,
                         ol.renderer.webgl.gpuData.tessErrorCallback_);
-  // tessy.gluTessCallback(libtess.gluEnum.GLU_TESS_COMBINE_DATA,
-  //                       ol.renderer.webgl.gpuData.tessCombineCallback_);
+  tessy.gluTessCallback(libtess.gluEnum.GLU_TESS_COMBINE_DATA,
+                         ol.renderer.webgl.gpuData.tessCombineCallback_);
   tessy.gluTessCallback(libtess.gluEnum.GLU_TESS_EDGE_FLAG_DATA,
                         ol.renderer.webgl.gpuData.tessEdgeCallback_);
 
@@ -426,9 +428,9 @@ ol.renderer.webgl.gpuData.gluTesselator_ = function() {
  * @param {Array.<number>} indices - Destination array for vertex indeices.
  * @private
  */
-ol.renderer.webgl.gpuData.tessVertexCallback_ = function(index, indices) {
+ol.renderer.webgl.gpuData.tessVertexCallback_ = function(index, ctx) {
   // Data element is the index, record it
-  indices.push(index);
+  ctx.indices.push(index);
 };
 
 
@@ -484,8 +486,6 @@ ol.renderer.webgl.gpuData.tessErrorCallback_ = function(errno, ctx) {
 };
 
 
-/* This code is only needed when contours overlap:
-
 ol.renderer.webgl.gpuData.tessCombineCallback_ =
     function(coords, data, weight, ctx) {
 
@@ -513,9 +513,8 @@ ol.renderer.webgl.gpuData.tessCombineCallback_ =
     }
   //} else {
   //  console.log('reused vertex #' + index);
-  //}
+  }
   return index;
 };
 
-*/
 
