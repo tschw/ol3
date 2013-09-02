@@ -8,7 +8,7 @@ function Application() {
 
         var gl = new ol.webglnew.WebGL($('#webgl-canvas')[0], { 
             alpha: true, blend: true, stencil: false, antialias: false,
-            premultilpiedAlpha: true, preserveDrawingBuffer: false });
+            premultilpiedAlpha: false, preserveDrawingBuffer: false });
         if (gl != null) this.gl = gl;
         else $('#app-panel,#webgl-init-failed').toggleClass('invisible');
     }
@@ -26,8 +26,10 @@ function Application() {
         gl.hint(ext.FRAGMENT_SHADER_DERIVATIVE_HINT_OES, goog.webgl.FASTEST);
     }
 
-    //gl.enable(gl.DEPTH_TEST);
+    //gl.disable(gl.DEPTH_TEST);
     //gl.depthFunc(gl.LEQUAL);
+
+    gl.enable(gl.CULL_FACE);
 
     gl.clearColor(0.0, 0.0, 0.0, 1.0);
 
@@ -66,6 +68,7 @@ Application.prototype = {
     _frame: function() {
         var gl = this.gl.context;
 
+
         // Frame starts now.
         this._timeSlicer.update();
         $('title').text(this._timeSlicer.averageFrameRate.toFixed(2) + ' FPS');
@@ -91,6 +94,7 @@ Application.prototype = {
         this._renderPolys();
 
         gl.flush();
+        gl.finish();
     },
 
 
@@ -132,39 +136,23 @@ Application.prototype = {
 
         // Setup buffers
 
+        var batchBuilder = new ol.renderer.webgl.vectorBatchBuilder(30, 160);
+
         this._models = [ ];
         this._POLY_STYLE = this._polyStyle.bind(this);
         this._LINE_STYLE = this._lineStyle.bind(this);
 
-        this._models.push({ 
-            vbuf: this.gl.buffer(new Float32Array(this._expandLine(this._LINE_COORDS1))),
-            ibuf: null,
-            tess: goog.webgl.TRIANGLE_STRIP,
-            n: this._LINE_COORDS1.length + 4,
-            style: this._LINE_STYLE
-        });
+        batchBuilder.expandLineString(this._LINE_COORDS1, 0, this._LINE_COORDS1.length);
+        this._models[0] = this._model(batchBuilder.releaseBatch(), this._LINE_STYLE);
 
-        this._models.push({
-            vbuf: this.gl.buffer(new Float32Array(this._expandLine(this._LINE_COORDS1, true))),
-            ibuf: null,
-            tess: goog.webgl.TRIANGLE_STRIP,
-            n: this._LINE_COORDS1.length + 2,
-            style: this._LINE_STYLE
-        });
+        this._expandRing(batchBuilder, this._LINE_COORDS1);
+        this._models[1] = this._model(batchBuilder.releaseBatch(), this._LINE_STYLE);
 
-        var nFirst = this._LINE_COORDS1.length * 3; 
-        var vertices = this._expandLine(this._LINE_COORDS1);
-        this._expandLine(this._LINE_COORDS2, true, vertices);
-        this._models.push({
-            vbuf: this.gl.buffer(new Float32Array(vertices)),
-            ibuf: null,
-            tess: goog.webgl.TRIANGLE_STRIP,
-            n: vertices.length / 3 - 4,
-            style: this._LINE_STYLE
-        });
+        batchBuilder.expandLineString(this._LINE_COORDS1, 0, this._LINE_COORDS1.length);
+        this._expandRing(batchBuilder, this._LINE_COORDS2);
+        this._models[2] = this._model(batchBuilder.releaseBatch(), this._LINE_STYLE);
 
         var data = this._tomsTestData();
-        vertices = [];
         for(var i = 0; i < data.length; ++i) {
             var lineString = data[i], flatCoords = [];
             for (var j = 0; j < lineString.length; ++j) {
@@ -172,81 +160,44 @@ Application.prototype = {
                 flatCoords.push(coords[0]);
                 flatCoords.push(coords[1]);
             }
-            this._expandLine(flatCoords, false, vertices);
+            batchBuilder.expandLineString(flatCoords, 0, flatCoords.length);
         }
-        this._models.push({
-            vbuf: this.gl.buffer(new Float32Array(vertices)),
-            ibuf: null,
-            tess: goog.webgl.TRIANGLE_STRIP,
-            n: vertices.length / 3 - 4,
-            style: this._LINE_STYLE
-        });
+        this._models[3] = this._model(batchBuilder.releaseBatch(), this._LINE_STYLE);
 
-        vertices = this._expandLine(this._france(), true);
-        this._models.push({
-            vbuf: this.gl.buffer(new Float32Array(vertices)),
-            ibuf: null,
-            tess: goog.webgl.TRIANGLE_STRIP,
-            n: vertices.length / 3 - 4,
-            style: this._LINE_STYLE
-        });
+        batchBuilder.expandLineString(this._france(), 0, this._france().length);
+        this._models[4] = this._model(batchBuilder.releaseBatch(), this._LINE_STYLE);
 
-        var tri = this._TRIANGLE, indices = [0, 1, 2];
-        vertices = [ 0, 0, 12,   0, 0, 12, 
-                     tri[0], tri[1], 0,  tri[2], tri[3], 0,  tri[4], tri[5], 0, 
-                     0, 0, 12,   0, 0, 12 ];
-        this._models.push({
-            vbuf: this.gl.buffer(new Float32Array(vertices)),
-            ibuf: this.gl.buffer(new Uint16Array(indices),
+
+        batchBuilder.expandPolygon([this._TRIANGLE]);
+        this._models[5] = this._model(batchBuilder.releaseBatch(), this._POLY_STYLE);
+
+        batchBuilder.expandPolygon([this._TRIANGLE, this._HOLE]);
+        this._models[6] = this._model(batchBuilder.releaseBatch(), this._POLY_STYLE);
+
+        batchBuilder.expandPolygon([this._france()]);
+        this._models[7] = this._model(batchBuilder.releaseBatch(), this._POLY_STYLE);
+
+        batchBuilder.expandPolygon(this._dude());
+        this._models[8] = this._model(batchBuilder.releaseBatch(), this._POLY_STYLE);
+    },
+
+    _expandRing: function(batchBuilder, coords) {
+
+        coords = coords.slice(0, coords.length);
+        coords.push(coords[0]);
+        coords.push(coords[1]);
+        batchBuilder.expandLineString(coords, 0, coords.length);
+    },
+
+    _model: function(batch, style) {
+        return {
+            vbuf: this.gl.buffer(new Float32Array(batch.vertices)),
+            ibuf: this.gl.buffer(new Uint16Array(batch.indices),
                                  goog.webgl.ELEMENT_ARRAY_BUFFER),
             tess: goog.webgl.TRIANGLES,
-            n: indices.length,
-            style: this._LINE_STYLE
-        });
-
-        vertices = [], indices = [];
-        ol.renderer.webgl.gpuData.expandPolygon(vertices, indices, [tri], 2);
-        this._models.push({
-            vbuf: this.gl.buffer(new Float32Array(vertices)),
-            ibuf: this.gl.buffer(new Uint16Array(indices),
-                                 goog.webgl.ELEMENT_ARRAY_BUFFER),
-            tess: goog.webgl.TRIANGLES,
-            n: indices.length,
-            style: this._POLY_STYLE
-        });
-
-        vertices = [], indices = [];
-        ol.renderer.webgl.gpuData.expandPolygon(vertices, indices, [tri, this._HOLE], 2);
-        this._models.push({
-            vbuf: this.gl.buffer(new Float32Array(vertices)),
-            ibuf: this.gl.buffer(new Uint16Array(indices),
-                                 goog.webgl.ELEMENT_ARRAY_BUFFER),
-            tess: goog.webgl.TRIANGLES,
-            n: indices.length,
-            style: this._POLY_STYLE
-        });
-
-        vertices = [], indices = [];
-        ol.renderer.webgl.gpuData.expandPolygon(vertices, indices, [this._france()], 2);
-        this._models.push({
-            vbuf: this.gl.buffer(new Float32Array(vertices)),
-            ibuf: this.gl.buffer(new Uint16Array(indices),
-                                 goog.webgl.ELEMENT_ARRAY_BUFFER),
-            tess: goog.webgl.TRIANGLES,
-            n: indices.length,
-            style: this._POLY_STYLE
-        });
-
-        vertices = [], indices = [];
-        ol.renderer.webgl.gpuData.expandPolygon(vertices, indices, this._dude(), 2);
-        this._models.push({
-            vbuf: this.gl.buffer(new Float32Array(vertices)),
-            ibuf: this.gl.buffer(new Uint16Array(indices),
-                                 goog.webgl.ELEMENT_ARRAY_BUFFER),
-            tess: goog.webgl.TRIANGLES,
-            n: indices.length,
-            style: this._POLY_STYLE
-        });
+            n: batch.indices.length,
+            style: style
+        };
     },
 
     _polyShaderDesc: function(prog) {
@@ -271,6 +222,12 @@ Application.prototype = {
     _renderPolys: function() {
 
         // UI interaction
+        var modelIndex = $('#model').val(),
+            programIndex = $('#program').val();
+        var model = this._models[modelIndex];
+
+        if (! model) return;
+
         var angle = $('#rotation-angle').slider('value');
         var angleAnim = $('#rotation-speed').slider('value');
         if (angleAnim > 0) {
@@ -284,8 +241,6 @@ Application.prototype = {
             outlineWidth = $('#outline-width').slider('value'),
             antiAliasing = $('#anti-aliasing').slider('value'),
             gamma = $('#gamma').slider('value');
-        var modelIndex = $('#model').val(),
-            programIndex = $('#program').val();
         var canvas = $('#webgl-canvas');
         var pixelScaleX = 2 / canvas.width(), pixelScaleY = 2 / canvas.height();
 
@@ -314,8 +269,6 @@ Application.prototype = {
         gl.uniform3f(program.uniRenderParams, antiAliasing, gamma, 1/gamma);
         gl.uniform2f(program.uniPixelScale, pixelScaleX, pixelScaleY);
 
-        var model = this._models[modelIndex];
-
         // Set style
         var style = [];
         model.style(style, lineWidth, outlineWidth, antiAliasing);
@@ -326,11 +279,11 @@ Application.prototype = {
         gl.enableVertexAttribArray(program.attrPositionP);
         gl.vertexAttribPointer(program.attrPositionP, 2, gl.FLOAT, false, 12, 0);
         gl.enableVertexAttribArray(program.attrPosition0);
-        gl.vertexAttribPointer(program.attrPosition0, 2, gl.FLOAT, false, 12, 24);
+        gl.vertexAttribPointer(program.attrPosition0, 2, gl.FLOAT, false, 12, 3 * 3 * 4);
         gl.enableVertexAttribArray(program.attrPositionN);
-        gl.vertexAttribPointer(program.attrPositionN, 2, gl.FLOAT, false, 12, 48);
+        gl.vertexAttribPointer(program.attrPositionN, 2, gl.FLOAT, false, 12, 6 * 3 * 4);
         gl.enableVertexAttribArray(program.attrControl);
-        gl.vertexAttribPointer(program.attrControl, 1, gl.FLOAT, false, 12, 32);
+        gl.vertexAttribPointer(program.attrControl, 1, gl.FLOAT, false, 12, (3 * 3 + 2) * 4);
         if (! model.ibuf) {
             gl.drawArrays(model.tess, 0, model.n);
         } else {
@@ -348,26 +301,13 @@ Application.prototype = {
         gl.disable(goog.webgl.BLEND);
     },
 
-    _expandLine: function(coords, opt_ring, opt_dest) {
-
-        var dst = opt_dest || [];
-        if (opt_ring) {
-            coords = coords.slice(0, coords.length);
-            coords.push(coords[0]);
-            coords.push(coords[1]);
-        }
-        ol.renderer.webgl.gpuData.expandLineString(dst, coords, 0, coords.length, 2);
-        return dst;
-
-    },
-
     _lineStyle: function(dst, width, stroke, aa) {
-        ol.renderer.webgl.gpuData.encodeLineStyle(
+        ol.renderer.webgl.vectorBatchBuilder.encodeLineStyle(
             dst, width, this._COLOR1, stroke, this._COLOR2);
     },
 
     _polyStyle: function(dst, width, stroke, aa) {
-        ol.renderer.webgl.gpuData.encodePolygonStyle(
+        ol.renderer.webgl.vectorBatchBuilder.encodePolygonStyle(
             dst, this._COLOR1, aa, width, this._COLOR2); 
     },
 
@@ -378,8 +318,8 @@ Application.prototype = {
         $('#rotation-angle').slider({min: 0, max: Math.PI * 2, value: 0.125, step: 0.0001 });
         $('#rotation-speed').slider({min: 0, max: 1, value: 0, step: 0.0001 });
         $('#scale-x, #scale-y').slider({min: 0.125, max: 10, value: 1.0, step: 0.125});
-        $('#line-width').slider({min: 0.0001, max: 10, value: 6.0, step: 0.0001});
-        $('#outline-width').slider({min: 0, max: 1, value: 0.5, step: 0.0001});
+        $('#line-width').slider({min: 0.0001, max: 10, value: 3.0, step: 0.0001});
+        $('#outline-width').slider({min: 0, max: 1, value: 1.0, step: 0.0001});
         $('#anti-aliasing').slider({min: 0, max: 5, value: 1.75, step: 0.0001});
         $('#gamma').slider({min: 0.125, max: 10, value: 2.2, step: 0.125});
         $('#grid-size-x').slider({min: 10, max: 999, step: 1, value: 400});
@@ -766,11 +706,16 @@ Application.prototype = {
         465.0625 * kx + tx,295.11743 * ky + ty, 464.28125 * kx + tx,297.05493 * ky + ty,
         457.625 * kx + tx,299.80493 * ky + ty, 457.53125 * kx + tx,303.21118 * ky + ty,
         457.4375 * kx + tx,306.42993 * ky + ty, 460.375 * kx + tx,309.77368 * ky + ty,
+
+/*
         460.37500001 * kx + tx,309.77368 * ky + ty, 463.28125 * kx + tx,309.56275 * ky + ty,
         464.0625 * kx + tx,309.36743 * ky + ty, 464.06534 * kx + tx,309.36744 * ky + ty,
         464.09022 * kx + tx,309.36735 * ky + ty, 464.09375 * kx + tx,309.36743 * ky + ty,
         464.0967 * kx + tx,309.36736 * ky + ty, 464.12209 * kx + tx,309.36728 * ky + ty,
         464.125 * kx + tx,309.36743 * ky + ty, 464.12784 * kx + tx,309.36739 * ky + ty,
+*/
+
+
         464.15269 * kx + tx,309.36755 * ky + ty, 464.15625 * kx + tx,309.36743 * ky + ty,
         464.15608 * kx + tx,309.3693 * ky + ty, 464.1562 * kx + tx,309.3917 * ky + ty,
         464.15625 * kx + tx,309.39868 * ky + ty, 464.1591 * kx + tx,309.39861 * ky + ty,
@@ -778,11 +723,14 @@ Application.prototype = {
         464.19264 * kx + tx,309.40331 * ky + ty, 464.21374 * kx + tx,309.42448 * ky + ty,
         464.21875 * kx + tx,309.42993 * ky + ty, 464.23155 * kx + tx,309.44637 * ky + ty,
         464.26544 * kx + tx,309.49673 * ky + ty, 464.28125 * kx + tx,309.52368 * ky + ty,
+
+/*
         464.78377 * kx + tx,310.59893 * ky + ty, 464.46875 * kx + tx,316.58618 * ky + ty,
         464.4687500001 * kx + tx,316.58618 * ky + ty, 469.75 * kx + tx,319.71118 * ky + ty,
         470.53125 * kx + tx,322.46118 * ky + ty, 473.0625 * kx + tx,323.42993 * ky + ty,
         470.3125 * kx + tx,328.11743 * ky + ty, 471.3125 * kx + tx,329.67993 * ky + ty,
         470.71875 * kx + tx,332.99243 * ky + ty, 465.625 * kx + tx,334.96118 * ky + ty,
+*/
         464.65625 * kx + tx,336.11743 * ky + ty, 462.125 * kx + tx,337.49243 * ky + ty,
         461.9375 * kx + tx,339.83618 * ky + ty, 459.78125 * kx + tx,339.83618 * ky + ty,
         457.625 * kx + tx,338.46118 * ky + ty, 451.78125 * kx + tx,340.80493 * ky + ty,
