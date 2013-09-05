@@ -26,10 +26,6 @@ function Application() {
         gl.hint(ext.FRAGMENT_SHADER_DERIVATIVE_HINT_OES, goog.webgl.FASTEST);
     }
 
-    //gl.disable(gl.DEPTH_TEST);
-    //gl.depthFunc(gl.LEQUAL);
-
-    gl.enable(gl.CULL_FACE);
 
     gl.clearColor(0.0, 0.0, 0.0, 1.0);
 
@@ -111,7 +107,7 @@ Application.prototype = {
         // when available and tells us whether to premultiply the color by
         // the alpha component.
 
-        this._programs = [ ];
+        this._renders = [ ];
         var vertShaderSource = $('#webgl-poly-vert').text();
         var fragShaderSource = $('#webgl-poly-frag').text();
 
@@ -120,37 +116,45 @@ Application.prototype = {
             fragShaderSourceBuilder.push('#define PREMULTIPLY_BY_ALPHA 1');
         }
         fragShaderSourceBuilder.push(fragShaderSource);
-        this._programs.push(this._polyShaderDesc(
-                this.gl.linkProgram(vertShaderSource,
-                                    fragShaderSourceBuilder.join('\n')) ));
+        var program, locations;
+
+        program = this.gl.linkProgram(
+                vertShaderSource, fragShaderSourceBuilder.join('\n'));
+        locations = this._vectorShaderLocations(program);
+        this._renders.push(
+                new ol.renderer.webgl.VectorRender(0, program, locations));
+
         if (this.gl.OES_standard_derivatives) {
             fragShaderSourceBuilder.splice(fragShaderSourceBuilder.length - 1, 1);
             fragShaderSourceBuilder.push('#extension GL_OES_standard_derivatives : enable');
             fragShaderSourceBuilder.push('#define STANDARD_DERIVATIVES 1');
             $('<option value="1">using derivatives extension</option>').appendTo('#program');
             fragShaderSourceBuilder.push(fragShaderSource);
-            this._programs.push(this._polyShaderDesc(
-                    this.gl.linkProgram(vertShaderSource,
-                                        fragShaderSourceBuilder.join('\n')) ));
+
+            program = this.gl.linkProgram(
+                    vertShaderSource, fragShaderSourceBuilder.join('\n'));
+            locations = this._vectorShaderLocations(program);
+            this._renders.push(
+                    new ol.renderer.webgl.VectorRender(0, program, locations));
         }
 
-        // Setup buffers
+        // Setup batching infrastructure
 
-        var batchBuilder = new ol.renderer.webgl.vectorBatchBuilder(30, 160);
+        this._batchBuilder = new ol.renderer.webgl.BatchBuilder(30, 160);
+        this._batchRenderer = new ol.renderer.webgl.BatchRenderer();
+        this._currentModelIndex = -1;
+        this._currentBatch = null;
+    },
 
-        this._models = [ ];
-        this._POLY_STYLE = this._polyStyle.bind(this);
-        this._LINE_STYLE = this._lineStyle.bind(this);
+    _ring: function(batchBuilder, coords) {
 
-        batchBuilder.expandLineString(this._LINE_COORDS1, 0, this._LINE_COORDS1.length);
-        this._models[0] = this._model(batchBuilder.releaseBatch(), this._LINE_STYLE);
+        coords = coords.slice(0, coords.length);
+        coords.push(coords[0]);
+        coords.push(coords[1]);
+        batchBuilder.lineString(coords, 0, coords.length);
+    },
 
-        this._expandRing(batchBuilder, this._LINE_COORDS1);
-        this._models[1] = this._model(batchBuilder.releaseBatch(), this._LINE_STYLE);
-
-        batchBuilder.expandLineString(this._LINE_COORDS1, 0, this._LINE_COORDS1.length);
-        this._expandRing(batchBuilder, this._LINE_COORDS2);
-        this._models[2] = this._model(batchBuilder.releaseBatch(), this._LINE_STYLE);
+    _tomsTest: function(batchBuilder) {
 
         var data = this._tomsTestData();
         for(var i = 0; i < data.length; ++i) {
@@ -160,73 +164,34 @@ Application.prototype = {
                 flatCoords.push(coords[0]);
                 flatCoords.push(coords[1]);
             }
-            batchBuilder.expandLineString(flatCoords, 0, flatCoords.length);
+            batchBuilder.lineString(flatCoords, 0, flatCoords.length);
         }
-        this._models[3] = this._model(batchBuilder.releaseBatch(), this._LINE_STYLE);
-
-        batchBuilder.expandLineString(this._france(), 0, this._france().length);
-        this._models[4] = this._model(batchBuilder.releaseBatch(), this._LINE_STYLE);
-
-
-        batchBuilder.expandPolygon([this._TRIANGLE]);
-        this._models[5] = this._model(batchBuilder.releaseBatch(), this._POLY_STYLE);
-
-        batchBuilder.expandPolygon([this._TRIANGLE, this._HOLE]);
-        this._models[6] = this._model(batchBuilder.releaseBatch(), this._POLY_STYLE);
-
-        batchBuilder.expandPolygon([this._france()]);
-        this._models[7] = this._model(batchBuilder.releaseBatch(), this._POLY_STYLE);
-
-        batchBuilder.expandPolygon(this._dude());
-        this._models[8] = this._model(batchBuilder.releaseBatch(), this._POLY_STYLE);
     },
 
-    _expandRing: function(batchBuilder, coords) {
-
-        coords = coords.slice(0, coords.length);
-        coords.push(coords[0]);
-        coords.push(coords[1]);
-        batchBuilder.expandLineString(coords, 0, coords.length);
-    },
-
-    _model: function(batch, style) {
-        return {
-            vbuf: this.gl.buffer(new Float32Array(batch.vertices)),
-            ibuf: this.gl.buffer(new Uint16Array(batch.indices),
-                                 goog.webgl.ELEMENT_ARRAY_BUFFER),
-            tess: goog.webgl.TRIANGLES,
-            n: batch.indices.length,
-            style: style
-        };
-    },
-
-    _polyShaderDesc: function(prog) {
-        var result = { glObject: prog };
+    _vectorShaderLocations: function(prog) {
+        var result = { };
         var gl = this.gl.context;
 
         // Query vertex attributes
-        result.attrPositionP = gl.getAttribLocation(prog, 'PositionP');
-        result.attrPosition0 = gl.getAttribLocation(prog, 'Position0');
-        result.attrPositionN = gl.getAttribLocation(prog, 'PositionN');
-        result.attrControl = gl.getAttribLocation(prog, 'Control');
-        result.attrStyle = gl.getAttribLocation(prog, 'Style');
+        result.PositionP = gl.getAttribLocation(prog, 'PositionP');
+        result.Position0 = gl.getAttribLocation(prog, 'Position0');
+        result.PositionN = gl.getAttribLocation(prog, 'PositionN');
+        result.Control = gl.getAttribLocation(prog, 'Control');
+        result.Style = gl.getAttribLocation(prog, 'Style');
 
         // Query uniforms
 
-        result.uniTransform = gl.getUniformLocation(prog, 'Transform');
-        result.uniRenderParams = gl.getUniformLocation(prog, 'RenderParams');
-        result.uniPixelScale = gl.getUniformLocation(prog, 'PixelScale');
+        result.Transform = gl.getUniformLocation(prog, 'Transform');
+        result.RenderParams = gl.getUniformLocation(prog, 'RenderParams');
+        result.PixelScale = gl.getUniformLocation(prog, 'PixelScale');
         return result;
     },
 
     _renderPolys: function() {
 
         // UI interaction
-        var modelIndex = $('#model').val(),
-            programIndex = $('#program').val();
-        var model = this._models[modelIndex];
-
-        if (! model) return;
+        var modelIndex = Number($('#model').val()),
+            programIndex = Number($('#program').val());
 
         var angle = $('#rotation-angle').slider('value');
         var angleAnim = $('#rotation-speed').slider('value');
@@ -243,72 +208,106 @@ Application.prototype = {
             gamma = $('#gamma').slider('value');
         var canvas = $('#webgl-canvas');
         var pixelScaleX = 2 / canvas.width(), pixelScaleY = 2 / canvas.height();
+        antiAliasing += 0.001;
 
+        // Batch creation
 
         var gl = this.gl.context;
-        var program = this._programs[programIndex];
 
-        // Enable blending.
+        if (modelIndex != this._currentModelIndex) {
+            this._currentModelIndex = modelIndex;
+
+            var batchBuilder = this._batchBuilder;
+            var blueprint = null;
+
+            batchBuilder.setLineStyle(
+                lineWidth, this._COLOR1, outlineWidth, this._COLOR2);
+
+            batchBuilder.setPolygonStyle(
+                this._COLOR1, antiAliasing, lineWidth, this._COLOR2); 
+
+            switch (modelIndex) {
+              case 0:
+                batchBuilder.lineString(this._LINE_COORDS1, 0, this._LINE_COORDS1.length);
+                break;
+              case 1:
+                this._ring(batchBuilder, this._LINE_COORDS1);
+                break;
+              case 2:
+                batchBuilder.lineString(this._LINE_COORDS1, 0, this._LINE_COORDS1.length);
+                this._ring(batchBuilder, this._LINE_COORDS2);
+                break;
+              case 3:
+                this._tomsTest(batchBuilder);
+                break;
+              case 4:
+                batchBuilder.lineString(this._france(), 0, this._france().length);
+                break;
+              case 5:
+                batchBuilder.polygon([this._TRIANGLE]);
+                break;
+              case 6:
+                batchBuilder.polygon([this._TRIANGLE, this._HOLE]);
+                break;
+              case 7:
+                batchBuilder.polygon([this._france()]);
+                break;
+              case 8:
+                batchBuilder.polygon(this._dude());
+                break;
+              case 9:
+                this._tomsTest(batchBuilder);
+                batchBuilder.polygon([this._TRIANGLE, this._HOLE]);
+                break;
+              case 10:
+                batchBuilder.polygon([this._TRIANGLE, this._HOLE]);
+                this._tomsTest(batchBuilder);
+            }
+            if (this._currentBatch) {
+              ol.renderer.webgl.BatchRenderer.unload(gl, this._currentBatch);
+            }
+            blueprint = batchBuilder.releaseBlueprint();
+            //console.log('blueprint.indexData', blueprint.indexData);
+            //console.log('blueprint.vertexData', blueprint.vertexData);
+            this._currentBatch =
+                ol.renderer.webgl.BatchRenderer.upload(gl, blueprint);
+        }
+
+        // Set some GL state (global for now)
+        // TODO -> RendererConfig
         gl.enable(goog.webgl.BLEND);
         gl.blendFunc(goog.webgl.SRC_ALPHA, goog.webgl.ONE_MINUS_SRC_ALPHA);
+        //gl.disable(gl.DEPTH_TEST);
+        //gl.depthFunc(gl.LEQUAL);
+        gl.enable(gl.CULL_FACE);
 
-        gl.useProgram(program.glObject); 
+        // Select shaders in renderer configs
+        // Hacky as using one render for both types
+        var render = this._renders[programIndex];
+        this._batchRenderer.renders_[0] = render;
+        this._batchRenderer.renders_[1] = render;
 
         // Setup transformation matrix.
         var cosA = Math.cos(angle), sinA = Math.sin(angle);
-        gl.uniformMatrix4fv(program.uniTransform, false, [ 
-                cosA * scaleX, sinA * scaleX, 0, 0,
+        this._batchRenderer.setParameter(
+            ol.renderer.webgl.Render.Parameter.COORDINATE_TRANSFORM,
+            [   cosA * scaleX, sinA * scaleX, 0, 0,
                -sinA * scaleY, cosA * scaleY, 0, 0,
                             0,             0, 1, 0,
-                            0,             0, 0, 1
-        ]);
+                            0,             0, 0, 1 ]);
+        this._batchRenderer.setParameter(
+            ol.renderer.webgl.Render.Parameter.NDC_PIXEL_SIZE, [pixelScaleX, pixelScaleY]);
+        this._batchRenderer.setParameter(
+            ol.renderer.webgl.Render.Parameter.SMOOTHING_PIXELS, antiAliasing);
+        this._batchRenderer.setParameter(
+            ol.renderer.webgl.Render.Parameter.GAMMA, gamma);
 
-        antiAliasing += 0.001;
-
-        // Set uniforms.
-        gl.uniform3f(program.uniRenderParams, antiAliasing, gamma, 1/gamma);
-        gl.uniform2f(program.uniPixelScale, pixelScaleX, pixelScaleY);
-
-        // Set style
-        var style = [];
-        model.style(style, lineWidth, outlineWidth, antiAliasing);
-        gl.vertexAttrib4fv(program.attrStyle, style);
-
-        // Setup buffers and render
-        gl.bindBuffer(goog.webgl.ARRAY_BUFFER, model.vbuf);
-        gl.enableVertexAttribArray(program.attrPositionP);
-        gl.vertexAttribPointer(program.attrPositionP, 2, gl.FLOAT, false, 12, 0);
-        gl.enableVertexAttribArray(program.attrPosition0);
-        gl.vertexAttribPointer(program.attrPosition0, 2, gl.FLOAT, false, 12, 3 * 3 * 4);
-        gl.enableVertexAttribArray(program.attrPositionN);
-        gl.vertexAttribPointer(program.attrPositionN, 2, gl.FLOAT, false, 12, 6 * 3 * 4);
-        gl.enableVertexAttribArray(program.attrControl);
-        gl.vertexAttribPointer(program.attrControl, 1, gl.FLOAT, false, 12, (3 * 3 + 2) * 4);
-        if (! model.ibuf) {
-            gl.drawArrays(model.tess, 0, model.n);
-        } else {
-            gl.bindBuffer(goog.webgl.ELEMENT_ARRAY_BUFFER, model.ibuf);
-            gl.drawElements(model.tess, model.n,
-                            goog.webgl.UNSIGNED_SHORT, 0); 
-        }
-
-        gl.disableVertexAttribArray(program.attrPositionN);
-        gl.disableVertexAttribArray(program.attrPosition0);
-        gl.disableVertexAttribArray(program.attrPositionP);
-        gl.disableVertexAttribArray(program.attrControl);
+        this._batchRenderer.render(gl, this._currentBatch);
+        this._batchRenderer.reset(gl);
 
         // Disable blending
+        // TODO -> RendererConfig
         gl.disable(goog.webgl.BLEND);
-    },
-
-    _lineStyle: function(dst, width, stroke, aa) {
-        ol.renderer.webgl.vectorBatchBuilder.encodeLineStyle(
-            dst, width, this._COLOR1, stroke, this._COLOR2);
-    },
-
-    _polyStyle: function(dst, width, stroke, aa) {
-        ol.renderer.webgl.vectorBatchBuilder.encodePolygonStyle(
-            dst, this._COLOR1, aa, width, this._COLOR2); 
     },
 
     // UI
@@ -331,10 +330,19 @@ Application.prototype = {
                 .trigger('slidechange');
     },
 
+    _STYLE_CONTROLS: {
+        'line-width': 1, 
+        'outline-width': 1,
+        'anti-aliasing': 1 // TODO allow this one to be removed
+    },
+
     _displaySliderValue: function(e,ui) {
 
         ui = ui || { value: $(e.target).slider('value') };
         $(e.target).next().text(ui.value.toPrecision(3));
+        if (e.target.id in this._STYLE_CONTROLS) {
+            this._currentModelIndex = -1;
+        }
     },
 
     _onResize: function(e) {

@@ -14,10 +14,15 @@
         <script src="webgl.js"></script>
         <script src="timer.js"></script>
         <script src="timeslicer.js"></script>
-        <script src="vectorbatchbuilder.js"></script>
+
+        <script src="libcode/batch.js"></script>
+        <script src="libcode/render.js"></script>
+        <script src="libcode/batchbuilder.js"></script>
+        <script src="libcode/highprecision.js"></script>
+        <script src="libcode/batchrenderer.js"></script>
+        <script src="libcode/vectorrender.js"></script>
 
         <script src="outline_batching_vs.js"></script>
-
 
 <!--- Polygon Shaders -->
 
@@ -233,6 +238,7 @@ float antiAliasing = RenderParams.x;
         vec2 dSurfPixX = dFdx(Surface_Opacity.xy), dSurfPixY = dFdy(Surface_Opacity.xy);
         vec2 negScale = vec2(-length(vec2(dSurfPixX.x, dSurfPixY.x)),
                              -length(vec2(dSurfPixX.y, dSurfPixY.y)));
+        // FIXME Currently out of sync with scale requirements...
     #endif
 
         vec2 negAntiAlias = negScale * antiAliasing;
@@ -327,6 +333,8 @@ void main(void) {
                     <option value="6">Single Triangle with hole</option> 
                     <option value="7">France</option>
                     <option value="8">Dude with two holes</option>
+                    <option value="9">True multibatch 1</option>
+                    <option value="10">True multibatch 2</option>
                 </select>
                 <select id="program" name="program">
                     <option value="0">without extensions</option>
@@ -367,4 +375,5 @@ void main(void) {
         </div>
     </body>
 </html>
+
 
