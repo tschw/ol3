@@ -1,8 +1,10 @@
 
 goog.provide('ol.renderer.webgl.highPrecision');
+
 goog.require('goog.vec.Mat4');
 
 // TODO Get this code under test!!!
+
 
 /**
  * Determine a coarse value to encode high precision data in
@@ -14,9 +16,9 @@ goog.require('goog.vec.Mat4');
  */
 ol.renderer.webgl.highPrecision.coarseFloat = function(v) {
 
-  return ol.renderer.webgl.highPrecision.POW2_16_ * (v > 0 
-      ? Math.floor(v / ol.renderer.webgl.highPrecision.POW2_16_)
-      : Math.ceil(v / ol.renderer.webgl.highPrecision.POW2_16_));
+  return ol.renderer.webgl.highPrecision.POW2_16_ * (v > 0 ?
+      Math.floor(v / ol.renderer.webgl.highPrecision.POW2_16_) :
+      Math.ceil(v / ol.renderer.webgl.highPrecision.POW2_16_));
 };
 
 
@@ -27,6 +29,13 @@ ol.renderer.webgl.highPrecision.coarseFloat = function(v) {
  * coarse and fine positons yields the final coordinate, where
  * the coarse part will more and more cancel out at increasing
  * zoom.
+ * @param {!Array.<number>} dstCenter Destination array three
+ *     pairs of coordinate components are written to (coarse
+ *     and fine position).
+ * @param {!Array.<number>} dstMatrix Destination array for
+ *     4x4 transformation matrix with removed translation.
+ * @param {!Array.<number>} srcMatrix Input 4x4 transformation
+ *     matrix.
  */
 ol.renderer.webgl.highPrecision.detachTranslation =
     function(dstCenter, dstMatrix, srcMatrix) {
@@ -55,7 +64,7 @@ ol.renderer.webgl.highPrecision.detachTranslation =
       ol.renderer.webgl.highPrecision.coarseFloat(dstCenter[1]));
   dstCenter[3] -= (dstCenter[2] =
       ol.renderer.webgl.highPrecision.coarseFloat(dstCenter[3]));
-  dstCenter[5] -= (dstCenter[4] = 
+  dstCenter[5] -= (dstCenter[4] =
       ol.renderer.webgl.highPrecision.coarseFloat(dstCenter[5]));
 };
 

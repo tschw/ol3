@@ -1,16 +1,12 @@
 goog.provide('ol.renderer.webgl.BatchRenderer');
-goog.require('ol.renderer.webgl.highPrecision');
-
-goog.require('ol.renderer.webgl.Batch');
-goog.require('ol.renderer.webgl.Render');
 
 goog.require('goog.array');
 goog.require('goog.asserts');
 goog.require('goog.webgl');
+goog.require('ol.renderer.webgl.Batch');
+goog.require('ol.renderer.webgl.Render');
+goog.require('ol.renderer.webgl.highPrecision');
 
-/**
- * @file Defines the batch renderer API.
- */
 
 
 /**
@@ -53,11 +49,16 @@ ol.renderer.webgl.BatchRenderer.prototype.currentProgram_ = null;
 ol.renderer.webgl.BatchRenderer.prototype.setUniforms_ = true;
 
 
-ol.renderer.webgl.BatchRenderer.prototype.registerRender = 
+/**
+ * Register a Render with this renderer.
+ * @param {!ol.renderer.webgl.Render} render Render instance to register.
+ */
+ol.renderer.webgl.BatchRenderer.prototype.registerRender =
     function(render) {
 
-  this.renders_[render.id] = render;
+  this.renders_[render.type] = render;
 };
+
 
 /**
  * Resets the state of the renderer.
@@ -69,7 +70,7 @@ ol.renderer.webgl.BatchRenderer.prototype.registerRender =
  * Should be called when done rendering so all previsouly enabled
  * vertex attribute arrays are disabled again.
  *
- * @param {WebGLRenderingContext} gl GL.
+ * @param {!WebGLRenderingContext} gl GL.
  */
 ol.renderer.webgl.BatchRenderer.prototype.reset = function(gl) {
 
@@ -82,8 +83,8 @@ ol.renderer.webgl.BatchRenderer.prototype.reset = function(gl) {
 /**
  * Set a parameter.
  *
- * @param {ol.renderer.webgl.Render.Parameter} which Parameter to set.
- * @param {number|Array.<number>} state State to set.
+ * @param {!ol.renderer.webgl.Render.Parameter} which Parameter to set.
+ * @param {!(number|Array.<number>)} state State to set.
  */
 ol.renderer.webgl.BatchRenderer.prototype.setParameter =
     function(which, state) {
@@ -109,7 +110,7 @@ ol.renderer.webgl.BatchRenderer.prototype.setParameter =
 /**
  * Default global parameterization.
  *
- * @type {ol.renderer.webgl.Render.Parameters}
+ * @type {!ol.renderer.webgl.Render.Parameters}
  * @const
  * @private
  */
@@ -121,7 +122,7 @@ ol.renderer.webgl.BatchRenderer.DEFAULT_PARAM_VECTOR_ = [
   // SMOOTHING_PIXELS
   1.75,
   // GAMMA
-  2.3 
+  2.3
 ];
 
 
@@ -129,20 +130,20 @@ ol.renderer.webgl.BatchRenderer.DEFAULT_PARAM_VECTOR_ = [
  * Creates a batch from a blueprint, uploading the contained data to
  * the GL.
  *
- * @param {WebGLRenderingContext} gl GL.
- * @param {ol.renderer.webgl.Batch.Blueprint} blueprint Batch blueprint.
- * @return {ol.renderer.webgl.Batch}
+ * @param {!WebGLRenderingContext} gl GL.
+ * @param {!ol.renderer.webgl.Batch.Blueprint} blueprint Batch blueprint.
+ * @return {!ol.renderer.webgl.Batch}
  */
 ol.renderer.webgl.BatchRenderer.upload = function(gl, blueprint) {
 
   return {
-      indexBuffer: ol.renderer.webgl.BatchRenderer.glBuffer_(
-          gl, goog.webgl.ELEMENT_ARRAY_BUFFER, blueprint.indexData),
+    indexBuffer: ol.renderer.webgl.BatchRenderer.glBuffer_(
+        gl, goog.webgl.ELEMENT_ARRAY_BUFFER, blueprint.indexData),
 
-      vertexBuffer: ol.renderer.webgl.BatchRenderer.glBuffer_(
-          gl, goog.webgl.ARRAY_BUFFER, blueprint.vertexData),
+    vertexBuffer: ol.renderer.webgl.BatchRenderer.glBuffer_(
+        gl, goog.webgl.ARRAY_BUFFER, blueprint.vertexData),
 
-      controlStream: blueprint.controlStream
+    controlStream: blueprint.controlStream
   };
 };
 
@@ -150,8 +151,8 @@ ol.renderer.webgl.BatchRenderer.upload = function(gl, blueprint) {
 /**
  * Frees resources associated with a batch.
  *
- * @param {WebGLRenderingContext} gl GL.
- * @param {ol.renderer.webgl.Batch} batch Batch.
+ * @param {!WebGLRenderingContext} gl GL.
+ * @param {!ol.renderer.webgl.Batch} batch Batch.
  */
 ol.renderer.webgl.BatchRenderer.unload = function(gl, batch) {
 
@@ -164,15 +165,15 @@ ol.renderer.webgl.BatchRenderer.unload = function(gl, batch) {
 /**
  * Render a batch.
  *
- * @param {WebGLRenderingContext} gl GL.
- * @param {ol.renderer.webgl.Batch} batch The batch to render.
+ * @param {!WebGLRenderingContext} gl GL.
+ * @param {!ol.renderer.webgl.Batch} batch The batch to render.
  */
 ol.renderer.webgl.BatchRenderer.prototype.render = function(gl, batch) {
 
   var indexOffset = 0, vertexBufferOffset = 0, initBatch = true,
       controlStream = batch.controlStream;
 
-  var i = -1, n = controlStream.length, instr, arg0, arg1, arg2, arg3; 
+  var i = -1, n = controlStream.length, instr, arg0, arg1, arg2, arg3;
   goog.asserts.assert(!! n, 'Attempt to render empty / unloaded batch.');
 
   while (++i < n) {
@@ -182,7 +183,7 @@ ol.renderer.webgl.BatchRenderer.prototype.render = function(gl, batch) {
 
         arg0 = controlStream[++i];
         gl.drawElements(
-            goog.webgl.TRIANGLES, arg0, 
+            goog.webgl.TRIANGLES, arg0,
             goog.webgl.UNSIGNED_SHORT, indexOffset);
         indexOffset += arg0 * 2;
         break;
@@ -225,8 +226,9 @@ ol.renderer.webgl.BatchRenderer.prototype.render = function(gl, batch) {
 
 
 /**
- * @param {WebGLRenderingContext} gl GL.
- * @param render {ol.renderer.webgl.Render}
+ * @param {!WebGLRenderingContext} gl GL.
+ * @param {!ol.renderer.webgl.Render} render
+ * @private
  */
 ol.renderer.webgl.BatchRenderer.prototype.activateRender_ =
     function(gl, render) {
@@ -262,7 +264,7 @@ ol.renderer.webgl.BatchRenderer.prototype.activateRender_ =
  * Disables all vertex attribute arrays used by the currently active
  * render.
  *
- * @param {WebGLRenderingContext} gl GL.
+ * @param {!WebGLRenderingContext} gl GL.
  * @private
  */
 ol.renderer.webgl.BatchRenderer.prototype.disableVertexAttribArrays_ =
@@ -280,13 +282,12 @@ ol.renderer.webgl.BatchRenderer.prototype.disableVertexAttribArrays_ =
 /**
  * Configure the layout of a vertex buffer.
  *
- * @param {WebGLRenderingContext} gl GL.
- * @param {ol.renderer.webgl.Render.VertexBufferFormat}
- *     vertexBufferFormat Buffer format.
- * @param {number} offset Byte offset within the vertex buffer.
+ * @param {!WebGLRenderingContext} gl GL.
+ * @param {!ol.renderer.webgl.Render.VertexBufferFormat} fmt Buffer format.
+ * @param {!number} offset Byte offset within the vertex buffer.
  * @private
  */
-ol.renderer.webgl.BatchRenderer.setVertexBufferFormat_ = 
+ol.renderer.webgl.BatchRenderer.setVertexBufferFormat_ =
     function(gl, fmt, offset) {
 
   for (var args, i = 0, n = fmt.length; i < n; ++i) {
@@ -298,24 +299,26 @@ ol.renderer.webgl.BatchRenderer.setVertexBufferFormat_ =
 
 
 /**
- * @param {WebGLRenderingContext} gl GL.
- * @param {number} target GL target descriptor.
- * @param {ArrayBuffer} data Data as typed array.
- * @return {WebGLBuffer} GL buffer object.
+ * Create and populate WebGL buffer.
+ *
+ * @param {!WebGLRenderingContext} gl GL.
+ * @param {!number} target GL target descriptor.
+ * @param {!(Float32Array|Uint16Array)} data Data as typed array.
+ * @return {!WebGLBuffer} GL buffer object.
+ * @private
  */
 ol.renderer.webgl.BatchRenderer.glBuffer_ = function(gl, target, data) {
-
-    var result = gl.createBuffer();
-    gl.bindBuffer(target, result);
-    gl.bufferData(target, data, goog.webgl.STATIC_DRAW);
-    return result;
+  var result = gl.createBuffer();
+  gl.bindBuffer(target, result);
+  gl.bufferData(target, data, goog.webgl.STATIC_DRAW);
+  return result;
 };
 
 
 /**
  * Empty array.
  *
- * @type {Array}
+ * @type {!Array}
  * @const
  * @private
  */

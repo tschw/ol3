@@ -1,6 +1,7 @@
 goog.provide('ol.renderer.webgl.Render');
 
 
+
 /**
  * @class
  * Abstract base - render SPI.
@@ -11,43 +12,40 @@ goog.provide('ol.renderer.webgl.Render');
  * vertex encoding.
  *
  * @constructor
- * @param {ol.renderer.webgl.Batch.ControlStream.RendeType} type ID.
- * @param {WebGLProgram} program Rendering pipeline to use.
- * @param {ol.renderer.webgl.Render.VertexBufferFormat}
+ * @param {!ol.renderer.webgl.Batch.ControlStream.RenderType} type ID.
+ * @param {!WebGLProgram} program Rendering pipeline to use.
+ * @param {!ol.renderer.webgl.Render.VertexBufferFormat}
  *     vertexBufferFormat Vertex array layout.
  */
 ol.renderer.webgl.Render = function(type, program, vertexBufferFormat) {
 
   /**
-   * @type {number}
-   * @public
+   * @type {!number}
    */
   this.type = type;
 
   /**
-   * @type {WebGLProgram}
-   * @public
+   * @type {!WebGLProgram}
    */
   this.program = program;
 
   /**
    * Array of arguments to glVertexAttribPointer.
-   * @type {Array.<Array.<number>>}
-   * @public
+   * @type {!ol.renderer.webgl.Render.VertexBufferFormat}
    */
-  this.vertexBufferFormat = vertexBufferFormat; 
+  this.vertexBufferFormat = vertexBufferFormat;
 };
 
 
 /**
  * Set style.
  *
- * @param {WebGLRenderingContext} gl GL.
- * @param {ol.renderer.webgl.Batch.ControlStream} controlStream
+ * @param {!WebGLRenderingContext} gl GL.
+ * @param {!ol.renderer.webgl.Batch.ControlStream} controlStream
  *      Control stream.
- * @param {number} offset Start index of the encoded style values in the 
+ * @param {!number} offset Start index of the encoded style values in the
  *      control stream.
- * @return {number} Control stream index pointing to the last consumed
+ * @return {!number} Control stream index pointing to the last consumed
  *      style value.
  */
 ol.renderer.webgl.Render.prototype.setStyle = goog.abstractMethod;
@@ -56,18 +54,17 @@ ol.renderer.webgl.Render.prototype.setStyle = goog.abstractMethod;
 /**
  * Set uniforms.
  *
- * @param {WebGLRenderingContext} gl GL.
- * @param {ol.renderer.webgl.Render.ParameterVector} params
- *     Parameters.
+ * @param {!WebGLRenderingContext} gl GL.
+ * @param {!ol.renderer.webgl.Render.Parameters} params Parameters.
  */
 ol.renderer.webgl.Render.prototype.setUniforms = goog.abstractMethod;
 
 
 /**
- * Format of vertex arrays, described as arguments to 
+ * Format of vertex arrays, described as arguments to
  * gl.vertexAttribPointer.
  *
- * @typedef {Array.<Array.<number>>}
+ * @typedef {!Array.<!Array>}
  */
 ol.renderer.webgl.Render.VertexBufferFormat = undefined;
 
@@ -83,7 +80,7 @@ ol.renderer.webgl.Render.Parameters = undefined;
 /**
  * Semantic indices of the elements in the parameter vector.
  *
- * @enum {number}
+ * @enum {!number}
  */
 ol.renderer.webgl.Render.Parameter = {
   /**

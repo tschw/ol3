@@ -1,10 +1,5 @@
 goog.provide('ol.renderer.webgl.Batch');
 
-/**
- * @file Defines the data structures for batching and the
- * contract that links batch builder and renderer.
- */
-
 
 /**
  * Ready-to-render batch.
@@ -16,21 +11,21 @@ goog.provide('ol.renderer.webgl.Batch');
  *   controlStream: ol.renderer.webgl.Batch.ControlStream,
  *   indexBuffer: WebGLBuffer,
  *   vertexBuffer: WebGLBuffer
- * }}
+ * }} ol.renderer.webgl.Batch
  */
-ol.renderer.webgl.Batch;
+ol.renderer.webgl.Batch = {};
 
 
 /**
  * Host-side representation of a batch.
  *
  * @typedef {{
- *   controlStream: ol.renderer.webgl.Batch.ControlStream,
- *   indexData: Uint16Array,
- *   vertexData: Float32Array
- * }}
+ *   controlStream: !ol.renderer.webgl.Batch.ControlStream,
+ *   indexData: !Uint16Array,
+ *   vertexData: !Float32Array
+ * }} ol.renderer.webgl.Batch.Blueprint
  */
-ol.renderer.webgl.Batch.Blueprint = undefined;
+ol.renderer.webgl.Batch.Blueprint = {};
 
 
 /**
@@ -38,7 +33,7 @@ ol.renderer.webgl.Batch.Blueprint = undefined;
  * each followed by its arguments.
  * A typed array is used to reduce the host-side memory footprint.
  *
- * @typedef {Float32Array} ol.renderer.webgl.BatchData.ControlStream
+ * @typedef {(Array|Float32Array)} ol.renderer.webgl.BatchData.ControlStream
  */
 ol.renderer.webgl.Batch.ControlStream = {};
 
@@ -46,7 +41,7 @@ ol.renderer.webgl.Batch.ControlStream = {};
 /**
  * Control stream instruction.
  *
- * @enum {Number}
+ * @enum {!number}
  */
 ol.renderer.webgl.Batch.ControlStream.Instruction = {
   /**
@@ -80,7 +75,7 @@ ol.renderer.webgl.Batch.ControlStream.Instruction = {
  * Type of render.
  * Enumeration of concrete classes derived from Render.
  *
- * @enum {number}
+ * @enum {!number}
  * @see {ol.renderer.webgl.Render}
  */
 ol.renderer.webgl.Batch.ControlStream.RenderType = {
