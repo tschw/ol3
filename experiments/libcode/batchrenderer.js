@@ -5,7 +5,6 @@ goog.require('goog.asserts');
 goog.require('goog.webgl');
 goog.require('ol.renderer.webgl.Batch');
 goog.require('ol.renderer.webgl.Render');
-goog.require('ol.renderer.webgl.highPrecision');
 
 
 
@@ -119,6 +118,8 @@ ol.renderer.webgl.BatchRenderer.DEFAULT_PARAM_VECTOR_ = [
   [1 / 256, 1 / 256],
   // COORDINATE_TRANSFORM
   [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1],
+  // RTE_PRETRANSLATION
+  [0, 0, 0, 0, 0, 0],
   // SMOOTHING_PIXELS
   1.75,
   // GAMMA

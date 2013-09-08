@@ -19,10 +19,10 @@ goog.require('ol.renderer.webgl.Render');
 ol.renderer.webgl.VectorRender = function(type, program, locations) {
 
   goog.base(this, type, program, [
-    [locations.PositionP, 2, goog.webgl.FLOAT, false, 12, 0 * 4],
-    [locations.Position0, 2, goog.webgl.FLOAT, false, 12, 9 * 4],
-    [locations.PositionN, 2, goog.webgl.FLOAT, false, 12, 18 * 4],
-    [locations.Control, 1, goog.webgl.FLOAT, false, 12, 11 * 4]
+    [locations.PositionP, 4, goog.webgl.FLOAT, false, 20, 0 * 4],
+    [locations.Position0, 4, goog.webgl.FLOAT, false, 20, 15 * 4],
+    [locations.PositionN, 4, goog.webgl.FLOAT, false, 20, 30 * 4],
+    [locations.Control, 1, goog.webgl.FLOAT, false, 20, 19 * 4]
   ]);
   this.locations_ = locations;
 };
@@ -58,17 +58,15 @@ ol.renderer.webgl.VectorRender.prototype.setUniforms =
   gl.uniform2fv(this.locations_.PixelScale,
       params[ol.renderer.webgl.Render.Parameter.NDC_PIXEL_SIZE]);
 
+  var gamma = params[ol.renderer.webgl.Render.Parameter.GAMMA];
   gl.uniform3f(this.locations_.RenderParams,
       params[ol.renderer.webgl.Render.Parameter.SMOOTHING_PIXELS],
-      params[ol.renderer.webgl.Render.Parameter.GAMMA],
-      1 / params[ol.renderer.webgl.Render.Parameter.GAMMA]);
-  /*
-  var pretranslate =
-      params[ol.renderer.webgl.Render.Parameter.RTE_PRETRANSLATE]);
-  gl.uniform3f(this.locations_.PretranslateCoarse,
-      pretranslate[0], pretranslate[2], pretranslate[4]);
-  gl.uniform3f(this.locations_.PretranslateFine,
-      pretranslate[1], pretranslate[3], pretranslate[5]);
-  */
+      gamma, 1 / gamma);
+
+  var pretranslation =
+      params[ol.renderer.webgl.Render.Parameter.RTE_PRETRANSLATION];
+  gl.uniform4f(this.locations_.Pretranslation,
+      pretranslation[0], pretranslation[1],
+      pretranslation[3], pretranslation[4]);
 };
 

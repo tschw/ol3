@@ -3,6 +3,7 @@ goog.provide('ol.renderer.webgl.BatchBuilder');
 goog.require('goog.math');
 goog.require('libtess');
 goog.require('ol.renderer.webgl.Batch');
+goog.require('ol.renderer.webgl.highPrecision');
 
 
 // TODO Factor primitive-specific building blocks for batch
@@ -249,6 +250,9 @@ ol.renderer.webgl.BatchBuilder.prototype.lineString =
       ol.renderer.webgl.BatchBuilder.SurfaceFlags_.UNREFERENCED,
       ol.renderer.webgl.BatchBuilder.SurfaceFlags_.UNREFERENCED);
 
+  // Adjust by 4 triples: Undercounted two (nextIndex points to one
+  // before the last connected vertex) + two sentinels (precisely
+  // end sentinel offset by size of start sentinel).
   this.nextVertexIndex_ = nextIndex + 12;
 };
 
@@ -326,73 +330,29 @@ ol.renderer.webgl.BatchBuilder.prototype.polygon = function(contours) {
 
 
 /**
- * Scan along the left edge of a line and feed the coordinates to the
- * tesselator, disambiguating redundant vertices.
+ * Offsets within vertex layout.
  *
- * @param {!number} startOffset Vertex buffer start offset.
- * @param {!number} startIndex Index of the first vertex in the buffer.
- * @private
+ * @enum{!number}
+ * @protected
  */
-ol.renderer.webgl.BatchBuilder.prototype.tesseLeftEdge_ =
-    function(startOffset, startIndex) {
-
-  var vertices = this.vertices_, tess = this.gluTesselator_,
-      coords = this.tmpVecs_[0], i, j, e;
-
-  tess.gluTessBeginContour();
-
-  for (i = startOffset + 9, j = startIndex,
-       e = vertices.length - 9; i != e; i += 9, j += 3) {
-
-    // REVISIT: Better to not move vertex when unique?
-    // REVISIT: Also add normal displacement?
-
-    coords[0] = goog.math.lerp(vertices[i], vertices[i - 3],
-        ol.renderer.webgl.BatchBuilder.EPSILON_DISAMBIG_);
-    coords[1] = goog.math.lerp(vertices[i + 1], vertices[i - 2],
-        ol.renderer.webgl.BatchBuilder.EPSILON_DISAMBIG_);
-    tess.gluTessVertex(coords, /**@type{?}*/(j));
-
-    if (! (vertices[i + 8] &
-            ol.renderer.webgl.BatchBuilder.SurfaceFlags_.NE_RIGHT)) {
-
-      // Disambiguate redundant coordinate for the tesselator
-      // looking ahead to the next vertex (otherwise won't use it)
-      coords[0] = goog.math.lerp(vertices[i + 6], vertices[i + 9],
-          ol.renderer.webgl.BatchBuilder.EPSILON_DISAMBIG_);
-      coords[1] = goog.math.lerp(vertices[i + 7], vertices[i + 10],
-          ol.renderer.webgl.BatchBuilder.EPSILON_DISAMBIG_);
-      tess.gluTessVertex(coords, /**@type{?}*/(j + 2));
-
-    } else if (vertices[i + 2] ==
-            ol.renderer.webgl.BatchBuilder.SurfaceFlags_.NE_IN_EDGE_LEFT &&
-        vertices[i + 5] ==
-            ol.renderer.webgl.BatchBuilder.SurfaceFlags_.NE_IN_EDGE_RIGHT) {
-
-      // Broken edge: Skip 5 triples
-      i += 45, j += 15;
-
-      // REVISIT: Just skipping here - probably should consider two vertices.
-    }
-  }
-
-  tess.gluTessEndContour();
+ol.renderer.webgl.BatchBuilder.Offset_ = {
+  NEXT_VERTEX: 5,
+  COORD: 0,
+  FLAGS: 4,
+  NEXT_TRIPLE: 15,
+  COORD_A: 0,
+  FLAGS_A: 4,
+  COORD_B: 5,
+  FLAGS_B: 9,
+  COORD_C: 10,
+  FLAGS_C: 14,
+  FINE_COORD: 2
 };
 
 
 /**
- * Tiny displacement used to disambiguate redundant vertices for
- * tesselation.
- * @type {!number}
- * @const
- * @private
- */
-ol.renderer.webgl.BatchBuilder.EPSILON_DISAMBIG_ = 0.0009765625;
-
-
-/**
  * Edge control flags as processed by the vertex shader.
- * @enum {number}
+ * @enum {!number}
  * @private
  */
 ol.renderer.webgl.BatchBuilder.SurfaceFlags_ = {
@@ -419,6 +379,86 @@ ol.renderer.webgl.BatchBuilder.SurfaceFlags_ = {
   // see 'tesseLeftEdge_'.
   UNREFERENCED: 36
 };
+
+
+/**
+ * Scan along the left edge of a line and feed the coordinates to the
+ * tesselator, disambiguating redundant vertices.
+ *
+ * @param {!number} startOffset Vertex buffer start offset.
+ * @param {!number} startIndex Index of the first vertex in the buffer.
+ * @private
+ */
+ol.renderer.webgl.BatchBuilder.prototype.tesseLeftEdge_ =
+    function(startOffset, startIndex) {
+
+  var vertices = this.vertices_, tess = this.gluTesselator_,
+      coord = this.tmpVecs_[0], index, i, e;
+
+  tess.gluTessBeginContour();
+
+  for (i = startOffset + 
+          ol.renderer.webgl.BatchBuilder.Offset_.NEXT_TRIPLE, 
+       e = vertices.length -
+          ol.renderer.webgl.BatchBuilder.Offset_.NEXT_TRIPLE, 
+       index = startIndex; i != e; 
+       i += ol.renderer.webgl.BatchBuilder.Offset_.NEXT_TRIPLE, 
+       index += 3) {
+
+    // REVISIT: Better to not move vertex when unique?
+    // REVISIT: Also add normal displacement?
+
+    if (! (vertices[i + ol.renderer.webgl.BatchBuilder.Offset_.FLAGS_C] &
+            ol.renderer.webgl.BatchBuilder.SurfaceFlags_.NE_RIGHT)) {
+      // Two left edge vertices in triple
+
+      // Disambiguate redundant coordinates for the tesselator looking
+      // at surrounding coordinates (otherwise won't use it)
+
+      ol.renderer.webgl.BatchBuilder.lerpVertexCoord_(coord, vertices, 
+          i, i - ol.renderer.webgl.BatchBuilder.Offset_.NEXT_TRIPLE,
+          ol.renderer.webgl.BatchBuilder.EPSILON_DISAMBIG_);
+      tess.gluTessVertex(coord, /**@type{?}*/(index));
+
+      ol.renderer.webgl.BatchBuilder.lerpVertexCoord_(coord, vertices, 
+          i, i + ol.renderer.webgl.BatchBuilder.Offset_.NEXT_TRIPLE,
+          ol.renderer.webgl.BatchBuilder.EPSILON_DISAMBIG_);
+      tess.gluTessVertex(coord, /**@type{?}*/(index + 2));
+
+    } else { 
+      // One left edge vertex in triple
+
+      coord[0] = vertices[i] + vertices[i + 
+          ol.renderer.webgl.BatchBuilder.Offset_.FINE_COORD]; 
+      coord[1] = vertices[i + 1] + vertices[i + 1 +
+          ol.renderer.webgl.BatchBuilder.Offset_.FINE_COORD]; 
+
+      tess.gluTessVertex(coord, /**@type{?}*/(index));
+
+      if (vertices[i + ol.renderer.webgl.BatchBuilder.Offset_.FLAGS_A] ==
+              ol.renderer.webgl.BatchBuilder.SurfaceFlags_.NE_IN_EDGE_LEFT &&
+          vertices[i + ol.renderer.webgl.BatchBuilder.Offset_.FLAGS_B] ==
+              ol.renderer.webgl.BatchBuilder.SurfaceFlags_.NE_IN_EDGE_RIGHT) {
+        // Broken edge: Skip 5 triples
+        // REVISIT: Just skipping here - could consider two vertices.
+        i += 5 * ol.renderer.webgl.BatchBuilder.Offset_.NEXT_TRIPLE;
+        index += 15;
+      }
+    }
+  }
+
+  tess.gluTessEndContour();
+};
+
+
+/**
+ * Tiny displacement used to disambiguate redundant vertices for
+ * tesselation.
+ * @type {!number}
+ * @const
+ * @private
+ */
+ol.renderer.webgl.BatchBuilder.EPSILON_DISAMBIG_ = 0.0009765625;
 
 
 /**
@@ -462,6 +502,9 @@ ol.renderer.webgl.BatchBuilder.prototype.expandLinearRing_ =
       ol.renderer.webgl.BatchBuilder.SurfaceFlags_.UNREFERENCED,
       ol.renderer.webgl.BatchBuilder.SurfaceFlags_.UNREFERENCED);
 
+  // Adjust by 3 triples: Undercounted one (nextIndex points to the
+  // last connected vertex) + two sentinels (precisely end sentinel
+  // offset by size of start sentinel).
   this.nextVertexIndex_ = lastIndex + 9;
 };
 
@@ -702,6 +745,34 @@ ol.renderer.webgl.BatchBuilder.determineEdgeTangent_ =
 
 
 /**
+ * Linearly interpolate two vertex coordinate vectors.
+ *
+ * @param {!Array.<number>} dst Destination array.
+ * @param {!Array.<number>} coords Flat array of input coordinates.
+ * @param {!number} offsFirst Index offset of first coordinate vector.
+ * @param {!number} offsSecond Index offset of second coordinate vector.
+ * @param {!number} x Interpolation parameter.
+ * @private
+ */
+ol.renderer.webgl.BatchBuilder.lerpVertexCoord_ =
+    function(dst, vertices, offsFirst, offsSecond, x) {
+
+  dst[0] = goog.math.lerp(
+      vertices[offsFirst] + vertices[offsFirst + 
+          ol.renderer.webgl.BatchBuilder.Offset_.FINE_COORD], 
+      vertices[offsSecond] + vertices[offsSecond +
+          ol.renderer.webgl.BatchBuilder.Offset_.FINE_COORD], 
+      x);
+  dst[1] = goog.math.lerp(
+      vertices[offsFirst+ 1] + vertices[offsFirst + 1 + 
+          ol.renderer.webgl.BatchBuilder.Offset_.FINE_COORD], 
+      vertices[offsSecond + 1] + vertices[offsSecond + 1 +
+          ol.renderer.webgl.BatchBuilder.Offset_.FINE_COORD], 
+      x);
+};
+
+
+/**
  * Determine the two-dimensional normal halfway vector between two
  * two-dimensional normal input vectors.
  *
@@ -738,12 +809,21 @@ ol.renderer.webgl.BatchBuilder.halfwayDirection_ = function(dst, a, b) {
 ol.renderer.webgl.BatchBuilder.emitTripleVertex_ =
     function(vertices, x, y, flagsA, flagsB, flagsC) {
 
-  vertices.push(x);
-  vertices.push(y);
+  var xCoarse = ol.renderer.webgl.highPrecision.coarseFloat(x),
+      yCoarse = ol.renderer.webgl.highPrecision.coarseFloat(y);
+
+  vertices.push(xCoarse);
+  vertices.push(yCoarse);
+  vertices.push(x -= xCoarse);
+  vertices.push(y -= yCoarse);
   vertices.push(flagsA);
+  vertices.push(xCoarse);
+  vertices.push(yCoarse);
   vertices.push(x);
   vertices.push(y);
   vertices.push(flagsB);
+  vertices.push(xCoarse);
+  vertices.push(yCoarse);
   vertices.push(x);
   vertices.push(y);
   vertices.push(flagsC);
@@ -785,6 +865,7 @@ ol.renderer.webgl.BatchBuilder.encodeRGB_ = function(color) {
       Math.floor(color.g) +
       Math.floor(color.b) / 256);
 };
+
 
 // ---------------- GluTesselator callbacks
 

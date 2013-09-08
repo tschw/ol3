@@ -29,43 +29,42 @@ ol.renderer.webgl.highPrecision.coarseFloat = function(v) {
  * coarse and fine positons yields the final coordinate, where
  * the coarse part will more and more cancel out at increasing
  * zoom.
- * @param {!Array.<number>} dstCenter Destination array three
- *     pairs of coordinate components are written to (coarse
- *     and fine position).
+ * @param {!Array.<number>} dstPretranslation Destination array
+ *     of coarse and fine coordinate vectors for pretranslation.
  * @param {!Array.<number>} dstMatrix Destination array for
  *     4x4 transformation matrix with removed translation.
  * @param {!Array.<number>} srcMatrix Input 4x4 transformation
  *     matrix.
  */
 ol.renderer.webgl.highPrecision.detachTranslation =
-    function(dstCenter, dstMatrix, srcMatrix) {
+    function(dstPretranslation, dstMatrix, srcMatrix) {
 
   // TODO Tighten up and avoid heavy goog.vec.Mat4 dependencies?
 
-  var tmpMatrix = dstMatrix; // for clarity
+  var tmpMatrix = ol.renderer.webgl.highPrecision.tmpMatrix_;
 
   // Invert the transform, extract translation, and apply projective
   // division to get the viewer position in world space.
   goog.vec.Mat4.invert(srcMatrix, tmpMatrix);
-  var w = -tmpMatrix[15];
-  dstCenter[1] = tmpMatrix[12] / w;
-  dstCenter[3] = tmpMatrix[13] / w;
-  dstCenter[5] = tmpMatrix[14] / w;
+  var negW = -tmpMatrix[15];
+  dstPretranslation[1] = tmpMatrix[12] / negW;
+  dstPretranslation[3] = tmpMatrix[13] / negW;
+  dstPretranslation[5] = tmpMatrix[14] / negW;
 
   // Cancel out translation in the source matrix keeping its
   // projection intact
-  goog.vec.Mat4.multScalar(srcMatrix, 1 / w, dstMatrix);
-  goog.vec.Mat4.makeTranslate(
-      tmpMatrix, dstCenter[1], dstCenter[3], dstCenter[5]);
+  goog.vec.Mat4.multScalar(srcMatrix, -1 / negW, dstMatrix);
+  goog.vec.Mat4.makeTranslate(tmpMatrix,
+      dstPretranslation[1], dstPretranslation[3], dstPretranslation[5]);
   goog.vec.Mat4.multMat(tmpMatrix, dstMatrix, dstMatrix);
 
   // Split up floats
-  dstCenter[1] -= (dstCenter[0] =
-      ol.renderer.webgl.highPrecision.coarseFloat(dstCenter[1]));
-  dstCenter[3] -= (dstCenter[2] =
-      ol.renderer.webgl.highPrecision.coarseFloat(dstCenter[3]));
-  dstCenter[5] -= (dstCenter[4] =
-      ol.renderer.webgl.highPrecision.coarseFloat(dstCenter[5]));
+  dstPretranslation[1] -= (dstPretranslation[0] =
+      ol.renderer.webgl.highPrecision.coarseFloat(dstPretranslation[1]));
+  dstPretranslation[3] -= (dstPretranslation[2] =
+      ol.renderer.webgl.highPrecision.coarseFloat(dstPretranslation[3]));
+  dstPretranslation[5] -= (dstPretranslation[4] =
+      ol.renderer.webgl.highPrecision.coarseFloat(dstPretranslation[5]));
 };
 
 
@@ -76,4 +75,13 @@ ol.renderer.webgl.highPrecision.detachTranslation =
  * @private
  */
 ol.renderer.webgl.highPrecision.POW2_16_ = 65536;
+
+
+/**
+ * Temporary matrix.
+ *
+ * @type {Array.<number>}
+ * @private
+ */
+ol.renderer.webgl.highPrecision.tmpMatrix_ = new Array(16);
 

@@ -17,19 +17,14 @@
 
         <script src="libcode/batch.js"></script>
         <script src="libcode/render.js"></script>
-        <script src="libcode/batchbuilder.js"></script>
         <script src="libcode/highprecision.js"></script>
+        <script src="libcode/batchbuilder.js"></script>
         <script src="libcode/batchrenderer.js"></script>
         <script src="libcode/vectorrender.js"></script>
 
         <script src="outline_batching_vs.js"></script>
 
 <!--- Polygon Shaders -->
-
-
-
-
-
 
         <script id="webgl-poly-vert" type="x-shader/x-vertex">
 #version 100
@@ -40,9 +35,9 @@ precision mediump float;
 
 // ---- Interface
 
-attribute vec2 PositionP;
-attribute vec2 Position0;
-attribute vec2 PositionN;
+attribute vec4 PositionP;
+attribute vec4 Position0;
+attribute vec4 PositionN;
 attribute float Control;
 
 attribute vec4 Style;
@@ -51,7 +46,7 @@ attribute vec4 Style;
 // opacity (floor 0..255), outline width (fract)
 // stroke color (rgb)
 
-
+uniform vec4 Pretranslation;
 uniform mat4 Transform;
 uniform vec2 PixelScale;
 
@@ -66,6 +61,13 @@ float antiAliasing = RenderParams.x;
 
 
     // ---- Implementation
+
+    vec4 pretranslate(vec4 highPrecEncodedCoord) {
+        vec4 v = highPrecEncodedCoord + Pretranslation;
+        v.xy += v.zw;
+        v.zw = vec2(0.0, 1.0);
+        return v;
+    }
 
     vec3 decodeRGB(float v) {
 
@@ -97,7 +99,7 @@ float antiAliasing = RenderParams.x;
     void main(void) {
 
         // Basic vertex shader operation
-        gl_Position = Transform * vec4(Position0, 0.0, 1.0);
+        gl_Position = Transform * pretranslate(Position0);
 
         // Decode colors and opacity from style
         Color_NegHorizSurfScale.rgb = decodeRGB(Style.y);
@@ -116,9 +118,9 @@ float antiAliasing = RenderParams.x;
         if (Control >= 16.0) return;
 
         // Perform additional transforms
-        vec2 pN = perspDiv(Transform * vec4(PositionN, 0.0, 1.0)).xy;
+        vec2 pN = perspDiv(Transform * pretranslate(PositionN)).xy;
         vec2 p0 = perspDiv(gl_Position).xy;
-        vec2 pP = perspDiv(Transform * vec4(PositionP, 0.0, 1.0)).xy;
+        vec2 pP = perspDiv(Transform * pretranslate(PositionP)).xy;
 
         // Determine tangents of adjacent edges and at vertex
         vec2 tP = safeNormalize(p0 - pP);

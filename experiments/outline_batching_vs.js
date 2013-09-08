@@ -180,10 +180,11 @@ Application.prototype = {
         result.Style = gl.getAttribLocation(prog, 'Style');
 
         // Query uniforms
-
+        result.Pretranslation = gl.getUniformLocation(prog, 'Pretranslation');
         result.Transform = gl.getUniformLocation(prog, 'Transform');
         result.RenderParams = gl.getUniformLocation(prog, 'RenderParams');
         result.PixelScale = gl.getUniformLocation(prog, 'PixelScale');
+
         return result;
     },
 
@@ -289,12 +290,23 @@ Application.prototype = {
 
         // Setup transformation matrix.
         var cosA = Math.cos(angle), sinA = Math.sin(angle);
-        this._batchRenderer.setParameter(
-            ol.renderer.webgl.Render.Parameter.COORDINATE_TRANSFORM,
-            [   cosA * scaleX, sinA * scaleX, 0, 0,
+        var transform = [   
+                cosA * scaleX, sinA * scaleX, 0, 0,
                -sinA * scaleY, cosA * scaleY, 0, 0,
                             0,             0, 1, 0,
-                            0,             0, 0, 1 ]);
+                            0,             0, 0, 1
+        ];
+        var rteMatrix = [];
+        var rtePretranslation = [];
+        ol.renderer.webgl.highPrecision.detachTranslation(
+            rtePretranslation, rteMatrix, transform);
+
+        this._batchRenderer.setParameter(
+            ol.renderer.webgl.Render.Parameter.RTE_PRETRANSLATION, rtePretranslation);
+        this._batchRenderer.setParameter(
+            ol.renderer.webgl.Render.Parameter.COORDINATE_TRANSFORM, rteMatrix);
+        this._batchRenderer.setParameter(
+            ol.renderer.webgl.Render.Parameter.COORDINATE_TRANSFORM, rteMatrix);
         this._batchRenderer.setParameter(
             ol.renderer.webgl.Render.Parameter.NDC_PIXEL_SIZE, [pixelScaleX, pixelScaleY]);
         this._batchRenderer.setParameter(

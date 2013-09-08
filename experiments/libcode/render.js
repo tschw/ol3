@@ -96,13 +96,20 @@ ol.renderer.webgl.Render.Parameter = {
   COORDINATE_TRANSFORM: 1,
 
   /**
-   * Real-valued number of pixels to use for edge smoothing.
+   * "Relative to eye" translation (applied before the transformation
+   * matrix for high precision support) encoded as a flat array of two
+   * xyz vectors.
    */
-  SMOOTHING_PIXELS: 2,
+  RTE_PRETRANSLATION: 2,
 
   /**
-   * Assumed gamma constant of the display.
+   * Real-valued number of pixels to use for edge smoothing.
    */
-  GAMMA: 3
+  SMOOTHING_PIXELS: 3,
+
+  /**
+   * Assumed gamma value of the display.
+   */
+  GAMMA: 4
 };
 
