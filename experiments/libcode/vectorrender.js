@@ -1,5 +1,6 @@
 
 goog.provide('ol.renderer.webgl.VectorRender');
+goog.require('goog.webgl');
 goog.require('ol.renderer.webgl.Render');
 
 // TODO Make abstract and create subclasses for lines and polygons
@@ -12,8 +13,8 @@ goog.require('ol.renderer.webgl.Render');
  * @class
  * @extends {ol.renderer.webgl.Render}
  * @constructor
- * @param {!ol.renderer.webgl.Batch.ControlStream.RenderType} type
- * @param {!WebGLProgram} program GL program.
+ * @param {!ol.renderer.webgl.batch.ControlStreamRenderType} type
+ * @param {WebGLProgram} program GL program.
  * @param {!Object} locations Program locations.
  */
 ol.renderer.webgl.VectorRender = function(type, program, locations) {
@@ -69,4 +70,3 @@ ol.renderer.webgl.VectorRender.prototype.setUniforms =
       pretranslation[0], pretranslation[1],
       pretranslation[3], pretranslation[4]);
 };
-

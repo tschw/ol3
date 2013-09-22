@@ -3,14 +3,15 @@ goog.provide('ol.renderer.webgl.BatchRenderer');
 goog.require('goog.array');
 goog.require('goog.asserts');
 goog.require('goog.webgl');
-goog.require('ol.renderer.webgl.Batch');
 goog.require('ol.renderer.webgl.Render');
+goog.require('ol.renderer.webgl.batch');
 
 
 
 /**
  * @class
  * Generic OpenGL batch renderer.
+ *
  * @constructor
  * Create a batch renderer instance.
  */
@@ -69,7 +70,7 @@ ol.renderer.webgl.BatchRenderer.prototype.registerRender =
  * Should be called when done rendering so all previsouly enabled
  * vertex attribute arrays are disabled again.
  *
- * @param {!WebGLRenderingContext} gl GL.
+ * @param {WebGLRenderingContext} gl GL.
  */
 ol.renderer.webgl.BatchRenderer.prototype.reset = function(gl) {
 
@@ -131,8 +132,8 @@ ol.renderer.webgl.BatchRenderer.DEFAULT_PARAM_VECTOR_ = [
  * Creates a batch from a blueprint, uploading the contained data to
  * the GL.
  *
- * @param {!WebGLRenderingContext} gl GL.
- * @param {!ol.renderer.webgl.Batch.Blueprint} blueprint Batch blueprint.
+ * @param {WebGLRenderingContext} gl GL.
+ * @param {!ol.renderer.webgl.batch.Blueprint} blueprint Batch blueprint.
  * @return {!ol.renderer.webgl.Batch}
  */
 ol.renderer.webgl.BatchRenderer.upload = function(gl, blueprint) {
@@ -152,7 +153,7 @@ ol.renderer.webgl.BatchRenderer.upload = function(gl, blueprint) {
 /**
  * Frees resources associated with a batch.
  *
- * @param {!WebGLRenderingContext} gl GL.
+ * @param {WebGLRenderingContext} gl GL.
  * @param {!ol.renderer.webgl.Batch} batch Batch.
  */
 ol.renderer.webgl.BatchRenderer.unload = function(gl, batch) {
@@ -166,7 +167,7 @@ ol.renderer.webgl.BatchRenderer.unload = function(gl, batch) {
 /**
  * Render a batch.
  *
- * @param {!WebGLRenderingContext} gl GL.
+ * @param {WebGLRenderingContext} gl GL.
  * @param {!ol.renderer.webgl.Batch} batch The batch to render.
  */
 ol.renderer.webgl.BatchRenderer.prototype.render = function(gl, batch) {
@@ -180,7 +181,7 @@ ol.renderer.webgl.BatchRenderer.prototype.render = function(gl, batch) {
   while (++i < n) {
     switch (controlStream[i]) {
 
-      case ol.renderer.webgl.Batch.ControlStream.Instruction.DRAW_ELEMENTS:
+      case ol.renderer.webgl.batch.ControlStreamInstruction.DRAW_ELEMENTS:
 
         arg0 = controlStream[++i];
         gl.drawElements(
@@ -189,12 +190,12 @@ ol.renderer.webgl.BatchRenderer.prototype.render = function(gl, batch) {
         indexOffset += arg0 * 2;
         break;
 
-      case ol.renderer.webgl.Batch.ControlStream.Instruction.SET_STYLE:
+      case ol.renderer.webgl.batch.ControlStreamInstruction.SET_STYLE:
 
         i = this.currentRender_.setStyle(gl, controlStream, ++i);
         break;
 
-      case ol.renderer.webgl.Batch.ControlStream.Instruction.CONFIGURE:
+      case ol.renderer.webgl.batch.ControlStreamInstruction.CONFIGURE:
 
         arg0 = controlStream[++i];
         arg1 = controlStream[++i];
@@ -227,7 +228,7 @@ ol.renderer.webgl.BatchRenderer.prototype.render = function(gl, batch) {
 
 
 /**
- * @param {!WebGLRenderingContext} gl GL.
+ * @param {WebGLRenderingContext} gl GL.
  * @param {!ol.renderer.webgl.Render} render
  * @private
  */
@@ -265,7 +266,7 @@ ol.renderer.webgl.BatchRenderer.prototype.activateRender_ =
  * Disables all vertex attribute arrays used by the currently active
  * render.
  *
- * @param {!WebGLRenderingContext} gl GL.
+ * @param {WebGLRenderingContext} gl GL.
  * @private
  */
 ol.renderer.webgl.BatchRenderer.prototype.disableVertexAttribArrays_ =
@@ -283,9 +284,9 @@ ol.renderer.webgl.BatchRenderer.prototype.disableVertexAttribArrays_ =
 /**
  * Configure the layout of a vertex buffer.
  *
- * @param {!WebGLRenderingContext} gl GL.
+ * @param {WebGLRenderingContext} gl GL.
  * @param {!ol.renderer.webgl.Render.VertexBufferFormat} fmt Buffer format.
- * @param {!number} offset Byte offset within the vertex buffer.
+ * @param {number} offset Byte offset within the vertex buffer.
  * @private
  */
 ol.renderer.webgl.BatchRenderer.setVertexBufferFormat_ =
@@ -302,10 +303,10 @@ ol.renderer.webgl.BatchRenderer.setVertexBufferFormat_ =
 /**
  * Create and populate WebGL buffer.
  *
- * @param {!WebGLRenderingContext} gl GL.
- * @param {!number} target GL target descriptor.
+ * @param {WebGLRenderingContext} gl GL.
+ * @param {number} target GL target descriptor.
  * @param {!(Float32Array|Uint16Array)} data Data as typed array.
- * @return {!WebGLBuffer} GL buffer object.
+ * @return {WebGLBuffer} GL buffer object.
  * @private
  */
 ol.renderer.webgl.BatchRenderer.glBuffer_ = function(gl, target, data) {
@@ -324,4 +325,3 @@ ol.renderer.webgl.BatchRenderer.glBuffer_ = function(gl, target, data) {
  * @private
  */
 ol.renderer.webgl.BatchRenderer.EMPTY_ARRAY_ = [];
-

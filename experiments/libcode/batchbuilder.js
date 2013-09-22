@@ -2,7 +2,9 @@ goog.provide('ol.renderer.webgl.BatchBuilder');
 
 goog.require('goog.math');
 goog.require('libtess');
-goog.require('ol.renderer.webgl.Batch');
+goog.require('libtess.GluTesselator');
+//goog.require('ol.Color');
+goog.require('ol.renderer.webgl.batch');
 goog.require('ol.renderer.webgl.highPrecision');
 
 
@@ -25,10 +27,10 @@ goog.require('ol.renderer.webgl.highPrecision');
  * Create a BatchBuilder.
  *
  * @constructor
- * @param {!number} maxStraightAngle maxium angle in degrees (0..180)
+ * @param {number} maxStraightAngle maxium angle in degrees (0..180)
  *      between adjacent lines in a line string that are joined directly -
  *      sharper joins are beveled or broken.
- * @param {!number} maxBevelAngle maximum angle in degrees (0..180) between
+ * @param {number} maxBevelAngle maximum angle in degrees (0..180) between
  *      adjacent lines in a line string for which beveled joins are
  *      used - sharper joins are broken.
  */
@@ -69,7 +71,7 @@ ol.renderer.webgl.BatchBuilder = function(maxStraightAngle, maxBevelAngle) {
 /**
  * Get the resulting batch data from this builder.
  *
- * @return {!ol.renderer.webgl.Batch.Blueprint} All data for rendering
+ * @return {!ol.renderer.webgl.batch.Blueprint} All data for rendering
  *     prior to upload to the GPU.
  */
 ol.renderer.webgl.BatchBuilder.prototype.releaseBlueprint = function() {
@@ -87,8 +89,8 @@ ol.renderer.webgl.BatchBuilder.prototype.releaseBlueprint = function() {
 /**
  * Sets the style for line rendering.
  *
- * @param {!number} width Width of the line.
- * @param {!ol.Color} color Fill color and alpha.
+ * @param {number} width Width of the line.
+ * @param {ol.Color} color Fill color and alpha.
  * @param {number=} opt_strokeWidth Fractional stroke width.
  * @param {ol.Color=} opt_strokeColor Stroke color (alpha is ignored
  *    instead the opacity specified by the fill color is used).
@@ -96,12 +98,11 @@ ol.renderer.webgl.BatchBuilder.prototype.releaseBlueprint = function() {
 ol.renderer.webgl.BatchBuilder.prototype.setLineStyle =
     function(width, color, opt_strokeWidth, opt_strokeColor) {
 
-  var /**@type{!number}*/ strokeWidth = (
-      goog.math.clamp(opt_strokeWidth || 0, 0, 0.9999)),
-      /**@type{!ol.Color}*/ strokeColor = opt_strokeColor || color;
+  var strokeWidth = goog.math.clamp(opt_strokeWidth || 0, 0, 0.9999);
+  var strokeColor = opt_strokeColor || color;
 
   this.setStyle_(
-      ol.renderer.webgl.Batch.ControlStream.RenderType.LINES,
+      ol.renderer.webgl.batch.ControlStreamRenderType.LINES,
       width * 0.5,
       ol.renderer.webgl.BatchBuilder.encodeRGB_(color),
       Math.floor(color.a * 255) + strokeWidth,
@@ -116,14 +117,14 @@ ol.renderer.webgl.BatchBuilder.prototype.setLineStyle =
  * last coordinate in the range are equal.
  *
  * @param {!Array.<number>} coords Array of packed input coordinates.
- * @param {!number} offset Start index in input array.
- * @param {!number} end End index (exclusive).
+ * @param {number} offset Start index in input array.
+ * @param {number} end End index (exclusive).
  */
 ol.renderer.webgl.BatchBuilder.prototype.lineString =
     function(coords, offset, end) {
 
   this.requestConfig_(
-      ol.renderer.webgl.Batch.ControlStream.RenderType.LINES);
+      ol.renderer.webgl.batch.ControlStreamRenderType.LINES);
 
   // Vertex pattern used for lines:
   // ------------------------------
@@ -260,8 +261,8 @@ ol.renderer.webgl.BatchBuilder.prototype.lineString =
 /**
  * Set the style for polygon rendering.
  *
- * @param {!ol.Color} color Fill color and alpha.
- * @param {!number} antiAliasing Anti-Aliasing width used by the renderer.
+ * @param {ol.Color} color Fill color and alpha.
+ * @param {number} antiAliasing Anti-Aliasing width used by the renderer.
  * @param {number=} opt_strokeWidth Stroke width in pixels.
  * @param {ol.Color=} opt_strokeColor Stroke color (alpha is ignored
  *    instead the opacity specified by the fill color is used).
@@ -283,12 +284,11 @@ ol.renderer.webgl.BatchBuilder.prototype.setPolygonStyle =
     strokeColor = opt_strokeColor;
   }
   this.setStyle_(
-      ol.renderer.webgl.Batch.ControlStream.RenderType.POLYGONS,
+      ol.renderer.webgl.batch.ControlStreamRenderType.POLYGONS,
       extrude,
       ol.renderer.webgl.BatchBuilder.encodeRGB_(color),
       -(Math.floor(color.a * 255) + outlineWidth),
-      ol.renderer.webgl.BatchBuilder.encodeRGB_(
-          /**@type{!ol.Color}*/(strokeColor)));
+      ol.renderer.webgl.BatchBuilder.encodeRGB_(strokeColor));
 };
 
 
@@ -298,12 +298,12 @@ ol.renderer.webgl.BatchBuilder.prototype.setPolygonStyle =
  * The first contour given defines the outside of the polygon
  * further contours define holes.
  *
- * @param {!Array.<!Array.<!number>>} contours Contours in CCW winding.
+ * @param {!Array.<!Array.<number>>} contours Contours in CCW winding.
  */
 ol.renderer.webgl.BatchBuilder.prototype.polygon = function(contours) {
 
   this.requestConfig_(
-      ol.renderer.webgl.Batch.ControlStream.RenderType.POLYGONS);
+      ol.renderer.webgl.batch.ControlStreamRenderType.POLYGONS);
 
   var vertices = this.vertices_, indices = this.indices_,
       tess = this.gluTesselator_;
@@ -332,10 +332,10 @@ ol.renderer.webgl.BatchBuilder.prototype.polygon = function(contours) {
 /**
  * Offsets within vertex layout.
  *
- * @enum{!number}
+ * @enum {number}
  * @protected
  */
-ol.renderer.webgl.BatchBuilder.Offset_ = {
+ol.renderer.webgl.BatchBuilder.Offset = {
   NEXT_VERTEX: 5,
   COORD: 0,
   FLAGS: 4,
@@ -352,7 +352,7 @@ ol.renderer.webgl.BatchBuilder.Offset_ = {
 
 /**
  * Edge control flags as processed by the vertex shader.
- * @enum {!number}
+ * @enum {number}
  * @private
  */
 ol.renderer.webgl.BatchBuilder.SurfaceFlags_ = {
@@ -385,8 +385,8 @@ ol.renderer.webgl.BatchBuilder.SurfaceFlags_ = {
  * Scan along the left edge of a line and feed the coordinates to the
  * tesselator, disambiguating redundant vertices.
  *
- * @param {!number} startOffset Vertex buffer start offset.
- * @param {!number} startIndex Index of the first vertex in the buffer.
+ * @param {number} startOffset Vertex buffer start offset.
+ * @param {number} startIndex Index of the first vertex in the buffer.
  * @private
  */
 ol.renderer.webgl.BatchBuilder.prototype.tesseLeftEdge_ =
@@ -397,51 +397,51 @@ ol.renderer.webgl.BatchBuilder.prototype.tesseLeftEdge_ =
 
   tess.gluTessBeginContour();
 
-  for (i = startOffset + 
-          ol.renderer.webgl.BatchBuilder.Offset_.NEXT_TRIPLE, 
+  for (i = startOffset +
+          ol.renderer.webgl.BatchBuilder.Offset.NEXT_TRIPLE,
        e = vertices.length -
-          ol.renderer.webgl.BatchBuilder.Offset_.NEXT_TRIPLE, 
-       index = startIndex; i != e; 
-       i += ol.renderer.webgl.BatchBuilder.Offset_.NEXT_TRIPLE, 
+          ol.renderer.webgl.BatchBuilder.Offset.NEXT_TRIPLE,
+       index = startIndex; i != e;
+       i += ol.renderer.webgl.BatchBuilder.Offset.NEXT_TRIPLE,
        index += 3) {
 
     // REVISIT: Better to not move vertex when unique?
     // REVISIT: Also add normal displacement?
 
-    if (! (vertices[i + ol.renderer.webgl.BatchBuilder.Offset_.FLAGS_C] &
+    if (! (vertices[i + ol.renderer.webgl.BatchBuilder.Offset.FLAGS_C] &
             ol.renderer.webgl.BatchBuilder.SurfaceFlags_.NE_RIGHT)) {
       // Two left edge vertices in triple
 
       // Disambiguate redundant coordinates for the tesselator looking
       // at surrounding coordinates (otherwise won't use it)
 
-      ol.renderer.webgl.BatchBuilder.lerpVertexCoord_(coord, vertices, 
-          i, i - ol.renderer.webgl.BatchBuilder.Offset_.NEXT_TRIPLE,
+      ol.renderer.webgl.BatchBuilder.lerpVertexCoord_(coord, vertices,
+          i, i - ol.renderer.webgl.BatchBuilder.Offset.NEXT_TRIPLE,
           ol.renderer.webgl.BatchBuilder.EPSILON_DISAMBIG_);
       tess.gluTessVertex(coord, /**@type{?}*/(index));
 
-      ol.renderer.webgl.BatchBuilder.lerpVertexCoord_(coord, vertices, 
-          i, i + ol.renderer.webgl.BatchBuilder.Offset_.NEXT_TRIPLE,
+      ol.renderer.webgl.BatchBuilder.lerpVertexCoord_(coord, vertices,
+          i, i + ol.renderer.webgl.BatchBuilder.Offset.NEXT_TRIPLE,
           ol.renderer.webgl.BatchBuilder.EPSILON_DISAMBIG_);
       tess.gluTessVertex(coord, /**@type{?}*/(index + 2));
 
-    } else { 
+    } else {
       // One left edge vertex in triple
 
-      coord[0] = vertices[i] + vertices[i + 
-          ol.renderer.webgl.BatchBuilder.Offset_.FINE_COORD]; 
+      coord[0] = vertices[i] + vertices[i +
+          ol.renderer.webgl.BatchBuilder.Offset.FINE_COORD];
       coord[1] = vertices[i + 1] + vertices[i + 1 +
-          ol.renderer.webgl.BatchBuilder.Offset_.FINE_COORD]; 
+          ol.renderer.webgl.BatchBuilder.Offset.FINE_COORD];
 
       tess.gluTessVertex(coord, /**@type{?}*/(index));
 
-      if (vertices[i + ol.renderer.webgl.BatchBuilder.Offset_.FLAGS_A] ==
+      if (vertices[i + ol.renderer.webgl.BatchBuilder.Offset.FLAGS_A] ==
               ol.renderer.webgl.BatchBuilder.SurfaceFlags_.NE_IN_EDGE_LEFT &&
-          vertices[i + ol.renderer.webgl.BatchBuilder.Offset_.FLAGS_B] ==
+          vertices[i + ol.renderer.webgl.BatchBuilder.Offset.FLAGS_B] ==
               ol.renderer.webgl.BatchBuilder.SurfaceFlags_.NE_IN_EDGE_RIGHT) {
         // Broken edge: Skip 5 triples
         // REVISIT: Just skipping here - could consider two vertices.
-        i += 5 * ol.renderer.webgl.BatchBuilder.Offset_.NEXT_TRIPLE;
+        i += 5 * ol.renderer.webgl.BatchBuilder.Offset.NEXT_TRIPLE;
         index += 15;
       }
     }
@@ -454,7 +454,7 @@ ol.renderer.webgl.BatchBuilder.prototype.tesseLeftEdge_ =
 /**
  * Tiny displacement used to disambiguate redundant vertices for
  * tesselation.
- * @type {!number}
+ * @type {number}
  * @const
  * @private
  */
@@ -467,9 +467,9 @@ ol.renderer.webgl.BatchBuilder.EPSILON_DISAMBIG_ = 0.0009765625;
  * may be negative to adjust the winding on the fly.
  *
  * @param {!Array.<number>} coords Array of packed input coordinates.
- * @param {!number} offset Start index in input array.
- * @param {!number} stride Distance of coordinates in the array.
- * @param {!number} end End index (exclusive).
+ * @param {number} offset Start index in input array.
+ * @param {number} stride Distance of coordinates in the array.
+ * @param {number} end End index (exclusive).
  * @private
  */
 ol.renderer.webgl.BatchBuilder.prototype.expandLinearRing_ =
@@ -514,16 +514,16 @@ ol.renderer.webgl.BatchBuilder.prototype.expandLinearRing_ =
  * indices for a partial line string.
  *
  * @param {!Array.<number>} coords Input coordinates.
- * @param {!number} offset Start offset into the input array.
- * @param {!number} stride Distance between adjacent coordinates.
- * @param {!number} end Exclusive end posision in input array.
- * @param {!number} offsetOfPrevious Offset of the coordinate before
+ * @param {number} offset Start offset into the input array.
+ * @param {number} stride Distance between adjacent coordinates.
+ * @param {number} end Exclusive end posision in input array.
+ * @param {number} offsetOfPrevious Offset of the coordinate before
  *     the first.
- * @param {!number} offsetOfNext Offset of the coordinate after the
+ * @param {number} offsetOfNext Offset of the coordinate after the
  *     last.
- * @param {!number} index Index of first vertex to be emitted.
+ * @param {number} index Index of first vertex to be emitted.
  * @param {number=} opt_forceIndex Index used to close rings.
- * @return {!number} The next vertex index unless 'opt_forceIndex'
+ * @return {number} The next vertex index unless 'opt_forceIndex'
  *     is given - equal to 'opt_forceIndex' in this case.
  * @private
  */
@@ -729,8 +729,8 @@ ol.renderer.webgl.BatchBuilder.prototype.emitLineJunctions_ =
  *
  * @param {!Array.<number>} dst Destination array.
  * @param {!Array.<number>} coords Flat array of input coordinates.
- * @param {!number} iFrom Index of first vector.
- * @param {!number} iTo Index of second vector.
+ * @param {number} iFrom Index of first vector.
+ * @param {number} iTo Index of second vector.
  * @private
  */
 ol.renderer.webgl.BatchBuilder.determineEdgeTangent_ =
@@ -748,26 +748,26 @@ ol.renderer.webgl.BatchBuilder.determineEdgeTangent_ =
  * Linearly interpolate two vertex coordinate vectors.
  *
  * @param {!Array.<number>} dst Destination array.
- * @param {!Array.<number>} coords Flat array of input coordinates.
- * @param {!number} offsFirst Index offset of first coordinate vector.
- * @param {!number} offsSecond Index offset of second coordinate vector.
- * @param {!number} x Interpolation parameter.
+ * @param {!Array.<number>} vertices Flat array of input coordinates.
+ * @param {number} offsFirst Index offset of first coordinate vector.
+ * @param {number} offsSecond Index offset of second coordinate vector.
+ * @param {number} x Interpolation parameter.
  * @private
  */
 ol.renderer.webgl.BatchBuilder.lerpVertexCoord_ =
     function(dst, vertices, offsFirst, offsSecond, x) {
 
   dst[0] = goog.math.lerp(
-      vertices[offsFirst] + vertices[offsFirst + 
-          ol.renderer.webgl.BatchBuilder.Offset_.FINE_COORD], 
+      vertices[offsFirst] + vertices[offsFirst +
+          ol.renderer.webgl.BatchBuilder.Offset.FINE_COORD],
       vertices[offsSecond] + vertices[offsSecond +
-          ol.renderer.webgl.BatchBuilder.Offset_.FINE_COORD], 
+          ol.renderer.webgl.BatchBuilder.Offset.FINE_COORD],
       x);
   dst[1] = goog.math.lerp(
-      vertices[offsFirst+ 1] + vertices[offsFirst + 1 + 
-          ol.renderer.webgl.BatchBuilder.Offset_.FINE_COORD], 
+      vertices[offsFirst + 1] + vertices[offsFirst + 1 +
+          ol.renderer.webgl.BatchBuilder.Offset.FINE_COORD],
       vertices[offsSecond + 1] + vertices[offsSecond + 1 +
-          ol.renderer.webgl.BatchBuilder.Offset_.FINE_COORD], 
+          ol.renderer.webgl.BatchBuilder.Offset.FINE_COORD],
       x);
 };
 
@@ -799,11 +799,11 @@ ol.renderer.webgl.BatchBuilder.halfwayDirection_ = function(dst, a, b) {
  * their control flags.
  *
  * @param {!Array.<number>} vertices Destination array.
- * @param {!number} x X-component of coordinate.
- * @param {!number} y Y-component of coordinate.
- * @param {!number} flagsA Flags for first vertex in triple.
- * @param {!number} flagsB Flags for second vertex in triple.
- * @param {!number} flagsC Flags for third vertex in triple.
+ * @param {number} x X-component of coordinate.
+ * @param {number} y Y-component of coordinate.
+ * @param {number} flagsA Flags for first vertex in triple.
+ * @param {number} flagsB Flags for second vertex in triple.
+ * @param {number} flagsC Flags for third vertex in triple.
  * @private
  */
 ol.renderer.webgl.BatchBuilder.emitTripleVertex_ =
@@ -834,10 +834,10 @@ ol.renderer.webgl.BatchBuilder.emitTripleVertex_ =
  * Emit triangle indexes for a quad.
  *
  * @param {!Array.<number>} indices Destination array to append to.
- * @param {!number} iInL Incoming "left edge" index.
- * @param {!number} iInR Incoming "right edge" index.
- * @param {!number} iOutL Outgoing "left edge" index.
- * @param {!number} iOutR Outgoing "right edge" index.
+ * @param {number} iInL Incoming "left edge" index.
+ * @param {number} iInR Incoming "right edge" index.
+ * @param {number} iOutL Outgoing "left edge" index.
+ * @param {number} iOutR Outgoing "right edge" index.
  * @private
  */
 ol.renderer.webgl.BatchBuilder.emitQuadIndices_ =
@@ -855,8 +855,8 @@ ol.renderer.webgl.BatchBuilder.emitQuadIndices_ =
 /**
  * Encode a color (without alpha) in a floatingpoint value.
  *
- * @param {!ol.Color} color Color to encode.
- * @return {!number} Encoded red, green and blue component (8 bit each).
+ * @param {ol.Color} color Color to encode.
+ * @return {number} Encoded red, green and blue component (8 bit each).
  * @private
  */
 ol.renderer.webgl.BatchBuilder.encodeRGB_ = function(color) {
@@ -873,7 +873,7 @@ ol.renderer.webgl.BatchBuilder.encodeRGB_ = function(color) {
 /**
  * Record indexes from the tesselator.
  *
- * @param {!number} index - Vertex index (second argument to gluTessVertex).
+ * @param {number} index - Vertex index (second argument to gluTessVertex).
  * @param {!Array.<number>} indices - Destination array for vertex indices.
  * @private
  */
@@ -892,8 +892,9 @@ ol.renderer.webgl.BatchBuilder.tessVertexCallback_ = function(index, indices) {
 ol.renderer.webgl.BatchBuilder.tessErrorCallback_ = function(errno) {
 
   var name = '';
-  if (! goog.DEBUG) {
+  if (goog.DEBUG) {
     // Only attempt to find symbol in debug mode.
+    // FIXME this does not work in ADVANCED mode
 
     for (var key in libtess.errorType) {
       if (libtess.errorType[key] == errno) {
@@ -927,7 +928,7 @@ ol.renderer.webgl.BatchBuilder.prototype.reset_ = function() {
 
   /**
    * Control stream data.
-   * @type {!ol.renderer.webgl.Batch.ControlStream}
+   * @type {!ol.renderer.webgl.batch.ControlStream}
    * @private
    */
   this.control_ = [];
@@ -955,15 +956,16 @@ ol.renderer.webgl.BatchBuilder.prototype.reset_ = function() {
 
   /**
    * Next vertex index (== number of vertices emitted since the
-   * last setting of its offset).
-   * @type {!number}
+   * point in the control stream where the vertex buffer offset
+   * has been set).
+   * @type {number}
    * @private
    */
   this.nextVertexIndex_ = 0;
 
   /**
    * Indices covered by draw calls emitted to the control stream.
-   * @type {!number}
+   * @type {number}
    * @private
    */
   this.nIndicesFlushed_ = 0;
@@ -981,24 +983,23 @@ ol.renderer.webgl.BatchBuilder.prototype.reset_ = function() {
  * Ensure a specific render is activated at the current position in
  * the control stream.
  *
- * @param {!ol.renderer.webgl.Batch.ControlStream.RenderType} render
+ * @param {!ol.renderer.webgl.batch.ControlStreamRenderType} render
  * @private
  */
 ol.renderer.webgl.BatchBuilder.prototype.requestConfig_ =
     function(render) {
 
   if (render == this.currentRender_) {
-    // Already configured? Implies correct stride -> no op
+    // Already active? Nothing to do.
     return;
   }
 
   // Remap vertex buffer to new offset, restart index counting
   this.vertexBufferOffset_ = this.vertices_.length;
-  this.currentRender_ = render;
   this.nextVertexIndex_ = 0;
 
-  // Emit control instructions for reconfiguration, make sure
-  // we got style
+  // Emit control instructions for reconfiguration and do so with style
+  this.currentRender_ = render;
   this.emitConfigure_();
   this.emitSetStyle_();
 };
@@ -1007,11 +1008,11 @@ ol.renderer.webgl.BatchBuilder.prototype.requestConfig_ =
 /**
  * Request a style vector to be set for a specific configuration.
  *
- * @param {!number} render Index of renderer configuration.
- * @param {!number} s First component of style vector.
- * @param {!number} t Second component of style vector.
- * @param {!number} p Third component of style vector.
- * @param {!number} q Fourth component of style vector.
+ * @param {number} render Index of renderer configuration.
+ * @param {number} s First component of style vector.
+ * @param {number} t Second component of style vector.
+ * @param {number} p Third component of style vector.
+ * @param {number} q Fourth component of style vector.
  * @private
  */
 ol.renderer.webgl.BatchBuilder.prototype.setStyle_ =
@@ -1043,7 +1044,7 @@ ol.renderer.webgl.BatchBuilder.prototype.emitDraw_ = function() {
   if (n > 0) {
     // Any new indices? Have them drawn at this point
     this.control_.push(
-        ol.renderer.webgl.Batch.ControlStream.Instruction.DRAW_ELEMENTS);
+        ol.renderer.webgl.batch.ControlStreamInstruction.DRAW_ELEMENTS);
     this.control_.push(n);
     this.nIndicesFlushed_ = this.indices_.length;
   }
@@ -1063,7 +1064,7 @@ ol.renderer.webgl.BatchBuilder.prototype.emitSetStyle_ =
   // Write instruction and style quadruple to control stream
   var style = this.styles_[this.currentRender_];
   this.control_.push(
-      ol.renderer.webgl.Batch.ControlStream.Instruction.SET_STYLE);
+      ol.renderer.webgl.batch.ControlStreamInstruction.SET_STYLE);
   this.control_.push(style[0]);
   this.control_.push(style[1]);
   this.control_.push(style[2]);
@@ -1084,8 +1085,7 @@ ol.renderer.webgl.BatchBuilder.prototype.emitConfigure_ =
   // Write instruction, configuration index and vertex buffer
   // offset (in bytes) to the control stream
   this.control_.push(
-      ol.renderer.webgl.Batch.ControlStream.Instruction.CONFIGURE);
+      ol.renderer.webgl.batch.ControlStreamInstruction.CONFIGURE);
   this.control_.push(this.currentRender_);
   this.control_.push(this.vertexBufferOffset_ * 4);
 };
-

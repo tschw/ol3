@@ -2,8 +2,7 @@
 goog.provide('ol.renderer.webgl.highPrecision');
 
 goog.require('goog.vec.Mat4');
-
-// TODO Get this code under test!!!
+goog.require('goog.vec.Vec3');
 
 
 /**
@@ -39,32 +38,24 @@ ol.renderer.webgl.highPrecision.coarseFloat = function(v) {
 ol.renderer.webgl.highPrecision.detachTranslation =
     function(dstPretranslation, dstMatrix, srcMatrix) {
 
-  // TODO Tighten up and avoid heavy goog.vec.Mat4 dependencies?
-
   var tmpMatrix = ol.renderer.webgl.highPrecision.tmpMatrix_;
+  var tmpVector = ol.renderer.webgl.highPrecision.tmpVector_;
 
-  // Invert the transform, extract translation, and apply projective
-  // division to get the viewer position in world space.
+  // Determine translation in world space
   goog.vec.Mat4.invert(srcMatrix, tmpMatrix);
-  var negW = -tmpMatrix[15];
-  dstPretranslation[1] = tmpMatrix[12] / negW;
-  dstPretranslation[3] = tmpMatrix[13] / negW;
-  dstPretranslation[5] = tmpMatrix[14] / negW;
+  goog.vec.Mat4.getColumn(tmpMatrix, 3, tmpVector);
+  goog.vec.Vec3.negate(tmpVector, tmpVector);
+  dstPretranslation[3] = tmpVector[0] - (dstPretranslation[0] =
+      ol.renderer.webgl.highPrecision.coarseFloat(tmpVector[0]));
+  dstPretranslation[4] = tmpVector[1] - (dstPretranslation[1] =
+      ol.renderer.webgl.highPrecision.coarseFloat(tmpVector[1]));
+  dstPretranslation[5] = tmpVector[2] - (dstPretranslation[2] =
+      ol.renderer.webgl.highPrecision.coarseFloat(tmpVector[2]));
 
-  // Cancel out translation in the source matrix keeping its
-  // projection intact
-  goog.vec.Mat4.multScalar(srcMatrix, -1 / negW, dstMatrix);
+  // Remove translation
   goog.vec.Mat4.makeTranslate(tmpMatrix,
-      dstPretranslation[1], dstPretranslation[3], dstPretranslation[5]);
-  goog.vec.Mat4.multMat(tmpMatrix, dstMatrix, dstMatrix);
-
-  // Split up floats
-  dstPretranslation[1] -= (dstPretranslation[0] =
-      ol.renderer.webgl.highPrecision.coarseFloat(dstPretranslation[1]));
-  dstPretranslation[3] -= (dstPretranslation[2] =
-      ol.renderer.webgl.highPrecision.coarseFloat(dstPretranslation[3]));
-  dstPretranslation[5] -= (dstPretranslation[4] =
-      ol.renderer.webgl.highPrecision.coarseFloat(dstPretranslation[5]));
+      -srcMatrix[12], -srcMatrix[13], -srcMatrix[14]);
+  goog.vec.Mat4.multMat(tmpMatrix, srcMatrix, dstMatrix);
 };
 
 
@@ -85,3 +76,11 @@ ol.renderer.webgl.highPrecision.POW2_16_ = 65536;
  */
 ol.renderer.webgl.highPrecision.tmpMatrix_ = new Array(16);
 
+
+/**
+ * Temporary vector.
+ *
+ * @type {Array.<number>}
+ * @private
+ */
+ol.renderer.webgl.highPrecision.tmpVector_ = new Array(4);

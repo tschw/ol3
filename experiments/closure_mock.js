@@ -5,6 +5,7 @@ goog.provide('goog.math');
 goog.provide('goog.object');
 goog.provide('goog.webgl');
 goog.provide('goog.vec.Mat4');
+goog.provide('goog.vec.Vec3');
 
 goog.asserts.assert = function(cond, msg) {
     if (! cond) throw msg;
@@ -198,4 +199,10 @@ goog.vec.Mat4.multScalar = function(mat, scalar, resultMat) {
   return resultMat;
 };
 
+goog.vec.Vec3.negate = function(vec0, resultVec) {
+  resultVec[0] = -vec0[0];
+  resultVec[1] = -vec0[1];
+  resultVec[2] = -vec0[2];
+  return resultVec;
+};
 
