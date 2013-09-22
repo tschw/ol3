@@ -45,12 +45,16 @@ ol.renderer.webgl.highPrecision.detachTranslation =
   goog.vec.Mat4.invert(srcMatrix, tmpMatrix);
   goog.vec.Mat4.getColumn(tmpMatrix, 3, tmpVector);
   goog.vec.Vec3.negate(tmpVector, tmpVector);
-  dstPretranslation[3] = tmpVector[0] - (dstPretranslation[0] =
-      ol.renderer.webgl.highPrecision.coarseFloat(tmpVector[0]));
-  dstPretranslation[4] = tmpVector[1] - (dstPretranslation[1] =
-      ol.renderer.webgl.highPrecision.coarseFloat(tmpVector[1]));
-  dstPretranslation[5] = tmpVector[2] - (dstPretranslation[2] =
-      ol.renderer.webgl.highPrecision.coarseFloat(tmpVector[2]));
+  dstPretranslation[0] =
+      ol.renderer.webgl.highPrecision.coarseFloat(tmpVector[0]);
+  dstPretranslation[1] =
+      ol.renderer.webgl.highPrecision.coarseFloat(tmpVector[1]);
+  dstPretranslation[2] =
+      ol.renderer.webgl.highPrecision.coarseFloat(tmpVector[2]);
+
+  dstPretranslation[3] = tmpVector[0] - dstPretranslation[0];
+  dstPretranslation[4] = tmpVector[1] - dstPretranslation[1];
+  dstPretranslation[5] = tmpVector[2] - dstPretranslation[2];
 
   // Remove translation
   goog.vec.Mat4.makeTranslate(tmpMatrix,
@@ -84,3 +88,5 @@ ol.renderer.webgl.highPrecision.tmpMatrix_ = new Array(16);
  * @private
  */
 ol.renderer.webgl.highPrecision.tmpVector_ = new Array(4);
+
+
