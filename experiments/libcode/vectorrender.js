@@ -1,12 +1,7 @@
 
 goog.provide('ol.renderer.webgl.VectorRender');
 goog.require('goog.webgl');
-goog.require('ol.renderer.webgl.Render');
-
-// TODO Make abstract and create subclasses for lines and polygons
-// TODO Factor related batch construction routines in here
-// TODO Don't forget to tighten typing on the 'locations' parameter
-
+goog.require('ol.renderer.webgl.rendering');
 
 
 /**
@@ -27,7 +22,8 @@ ol.renderer.webgl.VectorRender = function(type, program, locations) {
   ]);
   this.locations_ = locations;
 };
-goog.inherits(ol.renderer.webgl.VectorRender, ol.renderer.webgl.Render);
+goog.inherits(
+    ol.renderer.webgl.VectorRender, ol.renderer.webgl.rendering.Render);
 
 
 /**
@@ -54,18 +50,18 @@ ol.renderer.webgl.VectorRender.prototype.setUniforms =
     function(gl, params) {
 
   gl.uniformMatrix4fv(this.locations_.Transform, false,
-      params[ol.renderer.webgl.Render.Parameter.COORDINATE_TRANSFORM]);
+      params[ol.renderer.webgl.rendering.Parameter.COORDINATE_TRANSFORM]);
 
   gl.uniform2fv(this.locations_.PixelScale,
-      params[ol.renderer.webgl.Render.Parameter.NDC_PIXEL_SIZE]);
+      params[ol.renderer.webgl.rendering.Parameter.NDC_PIXEL_SIZE]);
 
-  var gamma = params[ol.renderer.webgl.Render.Parameter.GAMMA];
+  var gamma = params[ol.renderer.webgl.rendering.Parameter.GAMMA];
   gl.uniform3f(this.locations_.RenderParams,
-      params[ol.renderer.webgl.Render.Parameter.SMOOTHING_PIXELS],
+      params[ol.renderer.webgl.rendering.Parameter.SMOOTHING_PIXELS],
       gamma, 1 / gamma);
 
   var pretranslation =
-      params[ol.renderer.webgl.Render.Parameter.RTE_PRETRANSLATION];
+      params[ol.renderer.webgl.rendering.Parameter.RTE_PRETRANSLATION];
   gl.uniform4f(this.locations_.Pretranslation,
       pretranslation[0], pretranslation[1],
       pretranslation[3], pretranslation[4]);

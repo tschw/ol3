@@ -15,6 +15,25 @@ goog.array.clone = function(arr) {
     return arr.slice(0, arr.length);
 }
 
+goog.array.equals = function(arr1, arr2, opt_equalsFn) {
+  if (!goog.isArrayLike(arr1) || !goog.isArrayLike(arr2) ||
+      arr1.length != arr2.length) {
+    return false;
+  }
+  var l = arr1.length;
+  var equalsFn = opt_equalsFn || goog.array.defaultCompareEquality;
+  for (var i = 0; i < l; i++) {
+    if (!equalsFn(arr1[i], arr2[i])) {
+      return false;
+    }
+  }
+  return true;
+};
+
+goog.array.defaultCompareEquality = function(a, b) {
+  return a === b;
+};
+
 goog.math.clamp = function(value, min, max) {
     return Math.min(Math.max(value, min), max);
 };

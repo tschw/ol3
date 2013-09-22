@@ -140,8 +140,8 @@ Application.prototype = {
 
         // Setup batching infrastructure
 
-        this._batchBuilder = new ol.renderer.webgl.BatchBuilder(30, 160);
-        this._batchRenderer = new ol.renderer.webgl.BatchRenderer();
+        this._batchBuilder = new ol.renderer.webgl.BatchBuilder();
+        this._batchRenderer = new ol.renderer.webgl.Renderer();
         this._currentModelIndex = -1;
         this._currentBatch = null;
     },
@@ -265,13 +265,12 @@ Application.prototype = {
                 this._tomsTest(batchBuilder);
             }
             if (this._currentBatch) {
-              ol.renderer.webgl.BatchRenderer.unload(gl, this._currentBatch);
+              this._currentBatch.dispose(gl);
             }
             blueprint = batchBuilder.releaseBlueprint();
             //console.log('blueprint.indexData', blueprint.indexData);
             //console.log('blueprint.vertexData', blueprint.vertexData);
-            this._currentBatch =
-                ol.renderer.webgl.BatchRenderer.upload(gl, blueprint);
+            this._currentBatch = new ol.renderer.webgl.Batch(gl, blueprint);
         }
 
         // Set some GL state (global for now)
@@ -302,17 +301,17 @@ Application.prototype = {
             rtePretranslation, rteMatrix, transform);
 
         this._batchRenderer.setParameter(
-            ol.renderer.webgl.Render.Parameter.RTE_PRETRANSLATION, rtePretranslation);
+            ol.renderer.webgl.rendering.Parameter.RTE_PRETRANSLATION, rtePretranslation);
         this._batchRenderer.setParameter(
-            ol.renderer.webgl.Render.Parameter.COORDINATE_TRANSFORM, rteMatrix);
+            ol.renderer.webgl.rendering.Parameter.COORDINATE_TRANSFORM, rteMatrix);
         this._batchRenderer.setParameter(
-            ol.renderer.webgl.Render.Parameter.COORDINATE_TRANSFORM, rteMatrix);
+            ol.renderer.webgl.rendering.Parameter.COORDINATE_TRANSFORM, rteMatrix);
         this._batchRenderer.setParameter(
-            ol.renderer.webgl.Render.Parameter.NDC_PIXEL_SIZE, [pixelScaleX, pixelScaleY]);
+            ol.renderer.webgl.rendering.Parameter.NDC_PIXEL_SIZE, [pixelScaleX, pixelScaleY]);
         this._batchRenderer.setParameter(
-            ol.renderer.webgl.Render.Parameter.SMOOTHING_PIXELS, antiAliasing);
+            ol.renderer.webgl.rendering.Parameter.SMOOTHING_PIXELS, antiAliasing);
         this._batchRenderer.setParameter(
-            ol.renderer.webgl.Render.Parameter.GAMMA, gamma);
+            ol.renderer.webgl.rendering.Parameter.GAMMA, gamma);
 
         this._batchRenderer.render(gl, this._currentBatch);
         this._batchRenderer.reset(gl);
