@@ -28,11 +28,11 @@ ol.renderer.webgl.highPrecision.coarseFloat = function(v) {
  * coarse and fine positons yields the final coordinate, where
  * the coarse part will more and more cancel out at increasing
  * zoom.
- * @param {!Array.<number>} dstPretranslation Destination array
+ * @param {Array.<number>} dstPretranslation Destination array
  *     of coarse and fine coordinate vectors for pretranslation.
- * @param {!Array.<number>} dstMatrix Destination array for
+ * @param {Array.<number>} dstMatrix Destination array for
  *     4x4 transformation matrix with removed translation.
- * @param {!Array.<number>} srcMatrix Input 4x4 transformation
+ * @param {Array.<number>} srcMatrix Input 4x4 transformation
  *     matrix.
  */
 ol.renderer.webgl.highPrecision.detachTranslation =

@@ -6,14 +6,15 @@ goog.require('goog.vec.Mat4');
 goog.require('goog.webgl');
 goog.require('ol.Color');
 goog.require('ol.math');
+goog.require('ol.renderer.webgl.Batch');
 goog.require('ol.renderer.webgl.BatchBuilder');
-goog.require('ol.renderer.webgl.BatchRenderer');
 goog.require('ol.renderer.webgl.Layer');
-goog.require('ol.renderer.webgl.Render');
+goog.require('ol.renderer.webgl.RenderType');
+goog.require('ol.renderer.webgl.Renderer');
 goog.require('ol.renderer.webgl.VectorRender');
 goog.require('ol.renderer.webgl.VectorRenderShader');
-goog.require('ol.renderer.webgl.batch');
 goog.require('ol.renderer.webgl.highPrecision');
+goog.require('ol.renderer.webgl.rendering');
 goog.require('ol.renderer.webgl.testData');
 goog.require('ol.renderer.webgl.vectorlayer2.shader.PointCollection');
 goog.require('ol.style.LineLiteral');
@@ -55,7 +56,7 @@ ol.renderer.webgl.VectorLayer2 = function(mapRenderer, vectorLayer2) {
 
   /**
    * @private
-   * @type {?ol.renderer.webgl.BatchRenderer}
+   * @type {?ol.renderer.webgl.Renderer}
    */
   this.batchRenderer_ = null;
 
@@ -63,7 +64,7 @@ ol.renderer.webgl.VectorLayer2 = function(mapRenderer, vectorLayer2) {
    * @private
    * @type {ol.renderer.webgl.BatchBuilder}
    */
-  this.batchBuilder_ = new ol.renderer.webgl.BatchBuilder(30, 160);
+  this.batchBuilder_ = new ol.renderer.webgl.BatchBuilder();
 
   /**
    * @private
@@ -177,7 +178,7 @@ ol.renderer.webgl.VectorLayer2.prototype.renderFrame =
     this.renderPointCollections(pointCollections);
   }
 
-  var batchRenderer = this.prepareBatchRenderer_();
+  var batchRenderer = this.prepareRenderer_();
 
   var batch = this.batch_;
   if (goog.isNull(batch)) {
@@ -185,7 +186,7 @@ ol.renderer.webgl.VectorLayer2.prototype.renderFrame =
     //
     // // Free resources of old version
     // if (! goog.isNull(this.batch_)) {
-    //   ol.renderer.webgl.BatchRenderer_.unload(gl, this.batch_);
+    //   this.batch_.dispose(gl);
     // }
 
     this.renderPolygons();
@@ -197,8 +198,7 @@ ol.renderer.webgl.VectorLayer2.prototype.renderFrame =
 
     // Upload batch
     var blueprint = this.batchBuilder_.releaseBlueprint();
-    this.batch_ = batch =
-        ol.renderer.webgl.BatchRenderer.upload(gl, blueprint);
+    this.batch_ = batch = new ol.renderer.webgl.Batch(gl, blueprint);
   }
 
   // Render and forget the GL state (as there's rendering outside of it)
@@ -223,10 +223,10 @@ ol.renderer.webgl.VectorLayer2.prototype.renderFrame =
 
 
 /**
- * @return {ol.renderer.webgl.BatchRenderer}
+ * @return {ol.renderer.webgl.Renderer}
  * @private
  */
-ol.renderer.webgl.VectorLayer2.prototype.prepareBatchRenderer_ =
+ol.renderer.webgl.VectorLayer2.prototype.prepareRenderer_ =
     function() {
 
   var mapRenderer = this.getWebGLMapRenderer();
@@ -243,17 +243,17 @@ ol.renderer.webgl.VectorLayer2.prototype.prepareBatchRenderer_ =
     var locations = new ol.renderer.webgl.
         VectorRenderShader.Locations(gl, program);
 
-    batchRenderer = new ol.renderer.webgl.BatchRenderer();
+    batchRenderer = new ol.renderer.webgl.Renderer();
     // TODO Remove this glue code once the open ends are closed:
     // TODO There will be separate render / shader instances and we
     // TODO might want to factor their registration into the renderer
     batchRenderer.registerRender(
         new ol.renderer.webgl.VectorRender(
-            ol.renderer.webgl.batch.ControlStreamRenderType.LINES,
+            ol.renderer.webgl.RenderType.LINES,
             program, locations));
     batchRenderer.registerRender(
         new ol.renderer.webgl.VectorRender(
-            ol.renderer.webgl.batch.ControlStreamRenderType.POLYGONS,
+            ol.renderer.webgl.RenderType.POLYGONS,
             program, locations));
 
     this.batchRenderer_ = batchRenderer;
@@ -263,7 +263,7 @@ ol.renderer.webgl.VectorLayer2.prototype.prepareBatchRenderer_ =
 
   var framebufferDimension = this.framebufferDimension_;
   batchRenderer.setParameter(
-      ol.renderer.webgl.Render.Parameter.NDC_PIXEL_SIZE,
+      ol.renderer.webgl.rendering.Parameter.NDC_PIXEL_SIZE,
       [2 / framebufferDimension, 2 / framebufferDimension]);
 
   // Pull translation "before" the transform to increase precision
@@ -271,9 +271,10 @@ ol.renderer.webgl.VectorLayer2.prototype.prepareBatchRenderer_ =
   ol.renderer.webgl.highPrecision.detachTranslation(
       rtePretranslation, rteMatrix, this.modelViewMatrix_);
   batchRenderer.setParameter(
-      ol.renderer.webgl.Render.Parameter.RTE_PRETRANSLATION, rtePretranslation);
+      ol.renderer.webgl.rendering.Parameter.RTE_PRETRANSLATION,
+      rtePretranslation);
   batchRenderer.setParameter(
-      ol.renderer.webgl.Render.Parameter.COORDINATE_TRANSFORM, rteMatrix);
+      ol.renderer.webgl.rendering.Parameter.COORDINATE_TRANSFORM, rteMatrix);
 
   return batchRenderer;
 };
@@ -331,7 +332,7 @@ ol.renderer.webgl.VectorLayer2.prototype.renderLineStrings =
     buf = lineStringCollection.buf;
     dim = lineStringCollection.dim;
     goog.asserts.assert(dim == 2);
-    var inputCoords = /**@type{!Array.<number>}*/(buf.getArray());
+    var inputCoords = buf.getArray();
     var ends = lineStringCollection.ends;
     for (var offset in ends) {
       var end = ends[offset];

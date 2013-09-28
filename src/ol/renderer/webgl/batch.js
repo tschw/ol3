@@ -1,90 +1,75 @@
-goog.provide('ol.renderer.webgl.batch');
+goog.provide('ol.renderer.webgl.Batch');
 
-
-/**
- * Ready-to-render batch.
- *
- * The contained data has been uploaded to the GPU and can
- * only be accessed remotely using appropriate API calls.
- *
- * @typedef {{
- *   controlStream: ol.renderer.webgl.batch.ControlStream,
- *   indexBuffer: WebGLBuffer,
- *   vertexBuffer: WebGLBuffer
- * }}
- */
-ol.renderer.webgl.Batch;
 
 
 /**
- * Host-side representation of a batch.
+ * @class
+ * Replayable rendering instructions with associated data on the GPU.
  *
- * @typedef {{
- *   controlStream: !ol.renderer.webgl.batch.ControlStream,
- *   indexData: !Uint16Array,
- *   vertexData: !Float32Array
- * }}
- */
-ol.renderer.webgl.batch.Blueprint;
-
-
-/**
- * A flat array of numbers that represent rendering instructions
- * each followed by its arguments.
- * A typed array is used to reduce the host-side memory footprint.
+ * @constructor
+ * Create a batch by uploading its data to the GPU.
  *
- * @typedef {(Array|Float32Array)}
+ * @param {WebGLRenderingContext} gl GL.
+ * @param {ol.renderer.webgl.batching.Blueprint} blueprint Blueprint as
+ *     returned from 'BatchBuilder.releaseBlueprint'.
+ * @see {ol.renderer.webgl.BatchBuilder}
  */
-ol.renderer.webgl.batch.ControlStream;
+ol.renderer.webgl.Batch = function(gl, blueprint) {
 
-
-/**
- * Control stream instruction.
- *
- * @enum {number}
- */
-ol.renderer.webgl.batch.ControlStreamInstruction = {
   /**
-   * Selects the rendering configuration. Followed by two
-   * arguments; the render type and the byte offset to use
-   * for the vertex buffer.
-   *
-   * @see {ol.renderer.webgl.batch.ControlStreamRenderType}
+   * @type {WebGLBuffer}
    */
-  CONFIGURE: 0,
+  this.indexBuffer = ol.renderer.webgl.Batch.glBuffer_(
+      gl, goog.webgl.ELEMENT_ARRAY_BUFFER, blueprint.indexData);
+
   /**
-   * Sets the style for the primitives to be rendered.
-   * Followed by four arguments that encode the style.
+   * @type {WebGLBuffer}
    */
-  SET_STYLE: 1,
+  this.vertexBuffer = ol.renderer.webgl.Batch.glBuffer_(
+      gl, goog.webgl.ARRAY_BUFFER, blueprint.vertexData);
+
   /**
-   * Dereferences a range within the index buffer.
-   * The single argument specifies the number of indices to
-   * be dereferenced.
-   * Ranges are assumed to be tightly packed, so the offset
-   * is determined from instructions in the control stream,
-   * where a 'DRAW_ELEMENTS' instructions sets the offset
-   * behind the last element dereferenced and selection of
-   * a new index buffer resets the offset to zero.
+   * @type {ol.renderer.webgl.batching.ControlStream}
    */
-  DRAW_ELEMENTS: 2
+  this.controlStream = blueprint.controlStream;
 };
 
 
 /**
- * Type of render.
- * Enumeration of concrete classes derived from Render.
+ * Remove this batch and free its data on the GPU.
  *
- * @enum {number}
- * @see {ol.renderer.webgl.Render}
+ * @param {WebGLRenderingContext} gl GL.
  */
-ol.renderer.webgl.batch.ControlStreamRenderType = {
-  /**
-   * Rendering configuration for line primitives.
-   */
-  LINES: 0,
-  /**
-   * Rendering configuration for polygon primitives.
-   */
-  POLYGONS: 1
+ol.renderer.webgl.Batch.prototype.dispose = function(gl) {
+
+  this.controlStream = ol.renderer.webgl.Batch.EMPTY_ARRAY_;
+  gl.deleteBuffer(this.indexBuffer);
+  gl.deleteBuffer(this.vertexBuffer);
 };
+
+
+/**
+ * Create and populate WebGL buffer.
+ *
+ * @param {WebGLRenderingContext} gl GL.
+ * @param {number} target GL target descriptor.
+ * @param {Float32Array|Uint16Array} data Data as typed array.
+ * @return {WebGLBuffer} GL buffer object.
+ * @private
+ */
+ol.renderer.webgl.Batch.glBuffer_ = function(gl, target, data) {
+  var result = gl.createBuffer();
+  gl.bindBuffer(target, result);
+  gl.bufferData(target, data, goog.webgl.STATIC_DRAW);
+  return result;
+};
+
+
+/**
+ * Empty array.
+ *
+ * @type {Array}
+ * @const
+ * @private
+ */
+ol.renderer.webgl.Batch.EMPTY_ARRAY_ = [];

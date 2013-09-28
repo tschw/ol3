@@ -84,3 +84,27 @@ ol.array.linearFindNearest = function(arr, target, direction) {
     return n - 1;
   }
 };
+
+
+/**
+ * Copies array elements when a predicate yields 'false'.
+ *
+ * @param {Array} dst Destination array.
+ * @param {Array} src Source array.
+ * @param {Function=} opt_predicate Optional predicate, called
+ *     with corresponding elements from source and destination
+ *     arrays. Defaults to goog.array.defaultCompareEquality.
+ * @return {number} Number of elements copied.
+ */
+ol.array.copyIfNot = function(dst, src, opt_predicate) {
+  var i, n, e, result = 0, predicate =
+      opt_predicate || goog.array.defaultCompareEquality;
+  for (i = 0, n = src.length; i < n; ++i) {
+    e = src[i];
+    if (! predicate(e, dst[i])) {
+      dst[i] = e;
+      ++result;
+    }
+  }
+  return result;
+};
