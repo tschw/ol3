@@ -2,19 +2,18 @@ goog.provide('ol.renderer.webgl.VectorLayer2');
 goog.provide('ol.webglnew.geometry');
 
 goog.require('goog.asserts');
+goog.require('goog.object');
 goog.require('goog.vec.Mat4');
 goog.require('goog.webgl');
 goog.require('ol.Color');
 goog.require('ol.math');
-goog.require('ol.renderer.webgl.Batch');
-goog.require('ol.renderer.webgl.BatchBuilder');
+goog.require('ol.renderer.replay.api.Batch');
+goog.require('ol.renderer.replay.api.BatchBuilder');
+goog.require('ol.renderer.replay.api.Renderer');
+goog.require('ol.renderer.replay.input');
+goog.require('ol.renderer.replay.webgl.BatchBuilderFactory');
+goog.require('ol.renderer.replay.webgl.RendererFactory');
 goog.require('ol.renderer.webgl.Layer');
-goog.require('ol.renderer.webgl.RenderType');
-goog.require('ol.renderer.webgl.Renderer');
-goog.require('ol.renderer.webgl.VectorRender');
-goog.require('ol.renderer.webgl.VectorRenderShader');
-goog.require('ol.renderer.webgl.highPrecision');
-goog.require('ol.renderer.webgl.rendering');
 goog.require('ol.renderer.webgl.testData');
 goog.require('ol.renderer.webgl.vectorlayer2.shader.PointCollection');
 goog.require('ol.style.LineLiteral');
@@ -56,19 +55,21 @@ ol.renderer.webgl.VectorLayer2 = function(mapRenderer, vectorLayer2) {
 
   /**
    * @private
-   * @type {?ol.renderer.webgl.Renderer}
+   * @type {?ol.renderer.replay.api.Renderer}
    */
   this.batchRenderer_ = null;
 
   /**
    * @private
-   * @type {ol.renderer.webgl.BatchBuilder}
+   * @type {ol.renderer.replay.api.BatchBuilder}
    */
-  this.batchBuilder_ = new ol.renderer.webgl.BatchBuilder();
+  this.batchBuilder_ =
+      ol.renderer.replay.webgl.BatchBuilderFactory.getInstance().create();
+
 
   /**
    * @private
-   * @type {?ol.renderer.webgl.Batch}
+   * @type {?ol.renderer.replay.api.Batch}
    */
   this.batch_ = null;
 
@@ -77,6 +78,7 @@ ol.renderer.webgl.VectorLayer2 = function(mapRenderer, vectorLayer2) {
    * @type {ol.renderer.webgl.vectorlayer2.shader.PointCollection.Locations}
    */
   this.pointCollectionLocations_ = null;
+
 };
 goog.inherits(ol.renderer.webgl.VectorLayer2, ol.renderer.webgl.Layer);
 
@@ -197,13 +199,13 @@ ol.renderer.webgl.VectorLayer2.prototype.renderFrame =
     }
 
     // Upload batch
-    var blueprint = this.batchBuilder_.releaseBlueprint();
-    this.batch_ = batch = new ol.renderer.webgl.Batch(gl, blueprint);
+    batch = this.batchBuilder_.releaseBatch();
+    this.batch_ = batch;
   }
 
   // Render and forget the GL state (as there's rendering outside of it)
-  batchRenderer.render(gl, batch);
-  batchRenderer.reset(gl);
+  batchRenderer.render(batch);
+  batchRenderer.flush();
 
   goog.vec.Mat4.makeIdentity(this.texCoordMatrix);
   goog.vec.Mat4.translate(this.texCoordMatrix,
@@ -223,7 +225,7 @@ ol.renderer.webgl.VectorLayer2.prototype.renderFrame =
 
 
 /**
- * @return {ol.renderer.webgl.Renderer}
+ * @return {ol.renderer.replay.api.Renderer}
  * @private
  */
 ol.renderer.webgl.VectorLayer2.prototype.prepareRenderer_ =
@@ -233,48 +235,21 @@ ol.renderer.webgl.VectorLayer2.prototype.prepareRenderer_ =
   var gl = mapRenderer.getGL();
 
   // Eventually create batch renderer
-
   var batchRenderer = this.batchRenderer_;
   if (goog.isNull(batchRenderer)) {
 
-    var program = mapRenderer.getProgram(
-        ol.renderer.webgl.VectorRenderShaderVertex,
-        ol.renderer.webgl.VectorRenderShaderFragment);
-    var locations = new ol.renderer.webgl.
-        VectorRenderShader.Locations(gl, program);
-
-    batchRenderer = new ol.renderer.webgl.Renderer();
-    // TODO Remove this glue code once the open ends are closed:
-    // TODO There will be separate render / shader instances and we
-    // TODO might want to factor their registration into the renderer
-    batchRenderer.registerRender(
-        new ol.renderer.webgl.VectorRender(
-            ol.renderer.webgl.RenderType.LINES,
-            program, locations));
-    batchRenderer.registerRender(
-        new ol.renderer.webgl.VectorRender(
-            ol.renderer.webgl.RenderType.POLYGONS,
-            program, locations));
-
+    batchRenderer =
+        ol.renderer.replay.webgl.RendererFactory.getInstance().create(gl);
     this.batchRenderer_ = batchRenderer;
   }
 
   // Set parameters
+  var framebufDim = this.framebufferDimension_;
+  batchRenderer.setParameter(ol.renderer.replay.api.
+      Renderer.ParameterIndex.RESOLUTION, [framebufDim, framebufDim]);
 
-  var framebufferDimension = this.framebufferDimension_;
-  batchRenderer.setParameter(
-      ol.renderer.webgl.rendering.Parameter.NDC_PIXEL_SIZE,
-      [2 / framebufferDimension, 2 / framebufferDimension]);
-
-  // Pull translation "before" the transform to increase precision
-  var rteMatrix = [], rtePretranslation = [];
-  ol.renderer.webgl.highPrecision.detachTranslation(
-      rtePretranslation, rteMatrix, this.modelViewMatrix_);
-  batchRenderer.setParameter(
-      ol.renderer.webgl.rendering.Parameter.RTE_PRETRANSLATION,
-      rtePretranslation);
-  batchRenderer.setParameter(
-      ol.renderer.webgl.rendering.Parameter.COORDINATE_TRANSFORM, rteMatrix);
+  batchRenderer.setParameter(ol.renderer.replay.api.
+      Renderer.ParameterIndex.COORDINATE_TRANSFORM, this.modelViewMatrix_);
 
   return batchRenderer;
 };
@@ -284,7 +259,7 @@ ol.renderer.webgl.VectorLayer2.prototype.prepareRenderer_ =
  */
 ol.renderer.webgl.VectorLayer2.prototype.renderPolygons =
     function() {
-
+  /*
   var batchBuilder = this.batchBuilder_;
 
   // Not part of the style - a global renderer parameter, this
@@ -305,6 +280,7 @@ ol.renderer.webgl.VectorLayer2.prototype.renderPolygons =
   batchBuilder.polygon([
     ol.renderer.webgl.testData.TRIANGLE,
     ol.renderer.webgl.testData.SQUARE]);
+  */
 };
 
 
@@ -318,26 +294,21 @@ ol.renderer.webgl.VectorLayer2.prototype.renderLineStrings =
 
   // Set style
   // TODO Get style data and replace this hard-wired hack
-  var lineWidth = 15.0; // pixels
+  var width = 15.0; // pixels
   var color = new ol.Color(255, 0, 0, 1);
-  var strokeWidth = 0.0; // fractional 0..1-eps
-  var strokeColor = new ol.Color(255, 255, 0, 1);
-  batchBuilder.setLineStyle(
-      lineWidth, color, strokeWidth, strokeColor);
 
   // Draw geometry to batch
-  var buf, dim, i, indexBuffer, indices, lineStringCollection;
+  var i, collection, buffer;
   for (i = 0; i < lineStrings.length; ++i) {
-    lineStringCollection = lineStrings[i].lineStrings;
-    buf = lineStringCollection.buf;
-    dim = lineStringCollection.dim;
-    goog.asserts.assert(dim == 2);
-    var inputCoords = buf.getArray();
-    var ends = lineStringCollection.ends;
-    for (var offset in ends) {
-      var end = ends[offset];
-      batchBuilder.lineString(inputCoords, Number(offset), end);
-    }
+    collection = lineStrings[i].lineStrings;
+    goog.asserts.assert(collection.dim == 2);
+
+    batchBuilder.addGeometries(
+        new ol.renderer.replay.input.LineStrings(
+            collection.buf.getArray(),
+            goog.object.getValues(collection.ends),
+            width, color));
+
   }
 };
 
