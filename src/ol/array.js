@@ -87,27 +87,29 @@ ol.array.linearFindNearest = function(arr, target, direction) {
 
 
 /**
- * Copies array elements when a predicate yields 'false'.
- * The source array is entirely copied to the destination at the
- * specified offset.
+ * Copy and count array elements that are unidentical from one array range
+ * to another.
+ * Source and destination shall not be overlapping ranges in the same array.
  *
- * @param {Array} dst Destination array.
- * @param {number} dstOffset Destination offset.
- * @param {Array} src Source array.
- * @param {Function=} opt_predicate Optional predicate, called
- *     with corresponding elements from source and destination
- *     arrays. Defaults to goog.array.defaultCompareEquality.
- * @return {number} Number of elements copied.
+ * @template T
+ * @param {Array.<T>} dst Destination array.
+ * @param {number} dstOffs Offset of the range in the destination array.
+ * @param {Array.<T>} src Source array.
+ * @param {number} srcOffs Offset of the range in the source array.
+ * @param {number} n Length of the range.
+ * @return {number} Number of different elements.
  */
-ol.array.copyIfNot = function(dst, dstOffset, src, opt_predicate) {
-  var i, n, e, result = 0, predicate =
-      opt_predicate || goog.array.defaultCompareEquality;
-  for (i = 0, n = src.length; i < n; ++i) {
-    e = src[i];
-    if (! predicate(e, dst[i])) {
-      dst[i + dstOffset] = e;
-      ++result;
+ol.array.rangeCopyCountNotSame = function(dst, dstOffs, src, srcOffs, n) {
+  goog.asserts.assert(
+      src !== dst || srcOffs + n <= dstOffs || srcOffs >= dstOffs + n,
+      'Overlapping array ranges are not supported');
+  var v, c = 0;
+  while (--n >= 0) {
+    v = src[n + srcOffs];
+    if (v !== dst[n + dstOffs]) {
+      dst[n + dstOffs] = v;
+      ++c;
     }
   }
-  return result;
+  return c;
 };

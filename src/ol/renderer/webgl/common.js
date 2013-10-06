@@ -21,7 +21,8 @@ ol.renderer.webgl.common.setParameter = function(params, which, state) {
   if (goog.isArray(param)) {
     goog.asserts.assert(goog.isArray(state), 'Array expected.');
     goog.asserts.assert(state.length >= param.length, 'Not enough data.');
-    changed = !! ol.array.copyIfNot(param, state);
+    changed =
+        !! ol.array.rangeCopyCountNotSame(param, 0, state, 0, state.length);
   } else {
     goog.asserts.assert(goog.isNumber(state), 'Number expected.');
     changed = state != param;

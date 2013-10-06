@@ -198,11 +198,12 @@ ol.renderer.webgl.BatchBuilder.prototype.setStyle_ =
     function(render, var_args) {
 
   var batcher = this.batchers_[render];
+  var styleData = batcher.styleData;
 
   batcher.encodeStyle(
       arguments[1], arguments[2], arguments[3], arguments[4]);
-  if (!! ol.array.copyIfNot(this.styles_[render], batcher.styleData) &&
-      render == this.currentRender_) {
+  if (!! ol.array.rangeCopyCountNotSame(this.styles_[render], 0,
+      styleData, 0, styleData.length) && render == this.currentRender_) {
     // Set style when render active - otherwise gets set later
     // when switching to this geometry
     this.emitSetStyle_();
