@@ -155,8 +155,8 @@ ol.webgl.ShaderCache.prototype.isDisposed = function() {
 
 
 /**
- * @private
  * @type {goog.log.Logger}
+ * @private
  */
 ol.webgl.ShaderCache.prototype.logger_ =
     goog.log.getLogger('ol.webgl.ShaderCache');
