@@ -12,3 +12,10 @@ goog.provide('ol');
  */
 ol.inherits =
     goog.inherits;
+
+
+/**
+ * ol.emptyMethod is an empty function that can be assigned to arbitrary
+ * method signatures as a default for optionally overridden methods.
+ */
+ol.emptyMethod = /** @type {function(...) : ?} */ (goog.nullFunction);
