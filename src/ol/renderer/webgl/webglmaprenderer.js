@@ -32,6 +32,7 @@ goog.require('ol.structs.IntegerSet');
 goog.require('ol.structs.LRUCache');
 goog.require('ol.structs.PriorityQueue');
 goog.require('ol.webgl');
+goog.require('ol.webgl.ShaderCache');
 goog.require('ol.webgl.WebGLContextEventType');
 goog.require('ol.webgl.shader');
 
@@ -137,15 +138,11 @@ ol.renderer.webgl.Map = function(container, map) {
 
   /**
    * @private
-   * @type {Object.<number, WebGLShader>}
+   * @type {ol.webgl.ShaderCache}
    */
-  this.shaderCache_ = {};
+  this.shaderCache_ = new ol.webgl.ShaderCache(this.gl_);
 
-  /**
-   * @private
-   * @type {Object.<string, WebGLProgram>}
-   */
-  this.programCache_ = {};
+  this.registerDisposable(this.shaderCache_);
 
   /**
    * @private
@@ -340,12 +337,6 @@ ol.renderer.webgl.Map.prototype.disposeInternal = function() {
     goog.object.forEach(this.bufferCache_, function(bufferCacheEntry) {
       gl.deleteBuffer(bufferCacheEntry.buffer);
     });
-    goog.object.forEach(this.programCache_, function(program) {
-      gl.deleteProgram(program);
-    });
-    goog.object.forEach(this.shaderCache_, function(shader) {
-      gl.deleteShader(shader);
-    });
     this.textureCache_.forEach(function(textureCacheEntry) {
       if (!goog.isNull(textureCacheEntry)) {
         gl.deleteTexture(textureCacheEntry.texture);
@@ -399,62 +390,16 @@ ol.renderer.webgl.Map.prototype.getGL = function() {
 
 
 /**
- * @param {ol.webgl.shader.Fragment} fragmentShaderObject Fragment shader.
- * @param {ol.webgl.shader.Vertex} vertexShaderObject Vertex shader.
- * @return {WebGLProgram} Program.
+ * @param {function(new:ol.webgl.shader.Vertex, WebGLRenderingContext)}
+ *    vertexShaderCtor Vertex shader class represented by its constructor.
+ * @param {function(new:ol.webgl.shader.Fragment, WebGLRenderingContext)}
+ *    fragmentShaderCtor Fragment shader class represented by its constructor.
+ * @return {WebGLProgram}
  */
-ol.renderer.webgl.Map.prototype.getProgram = function(
-    fragmentShaderObject, vertexShaderObject) {
-  var programKey =
-      goog.getUid(fragmentShaderObject) + '/' + goog.getUid(vertexShaderObject);
-  if (programKey in this.programCache_) {
-    return this.programCache_[programKey];
-  } else {
-    var gl = this.getGL();
-    var program = gl.createProgram();
-    gl.attachShader(program, this.getShader(fragmentShaderObject));
-    gl.attachShader(program, this.getShader(vertexShaderObject));
-    gl.linkProgram(program);
-    if (goog.DEBUG) {
-      if (!gl.getProgramParameter(program, goog.webgl.LINK_STATUS) &&
-          !gl.isContextLost()) {
-        goog.log.error(this.logger_, gl.getProgramInfoLog(program));
-      }
-    }
-    goog.asserts.assert(
-        gl.getProgramParameter(program, goog.webgl.LINK_STATUS) ||
-        gl.isContextLost());
-    this.programCache_[programKey] = program;
-    return program;
-  }
-};
+ol.renderer.webgl.Map.prototype.getProgram =
+    function(vertexShaderCtor, fragmentShaderCtor) {
 
-
-/**
- * @param {ol.webgl.Shader} shaderObject Shader object.
- * @return {WebGLShader} Shader.
- */
-ol.renderer.webgl.Map.prototype.getShader = function(shaderObject) {
-  var shaderKey = goog.getUid(shaderObject);
-  if (shaderKey in this.shaderCache_) {
-    return this.shaderCache_[shaderKey];
-  } else {
-    var gl = this.getGL();
-    var shader = gl.createShader(shaderObject.getType());
-    gl.shaderSource(shader, shaderObject.getSource());
-    gl.compileShader(shader);
-    if (goog.DEBUG) {
-      if (!gl.getShaderParameter(shader, goog.webgl.COMPILE_STATUS) &&
-          !gl.isContextLost()) {
-        goog.log.error(this.logger_, gl.getShaderInfoLog(shader));
-      }
-    }
-    goog.asserts.assert(
-        gl.getShaderParameter(shader, goog.webgl.COMPILE_STATUS) ||
-        gl.isContextLost());
-    this.shaderCache_[shaderKey] = shader;
-    return shader;
-  }
+  return this.shaderCache_.getProgram(vertexShaderCtor, fragmentShaderCtor);
 };
 
 
@@ -475,8 +420,7 @@ ol.renderer.webgl.Map.prototype.handleWebGLContextLost = function(event) {
   this.colorLocations_ = null;
   this.defaultLocations_ = null;
   this.bufferCache_ = {};
-  this.shaderCache_ = {};
-  this.programCache_ = {};
+  this.shaderCache_.clear();
   this.textureCache_.clear();
   this.textureCacheFrameMarkerCount_ = 0;
   goog.object.forEach(this.getLayerRenderers(), function(layerRenderer) {
@@ -593,15 +537,15 @@ ol.renderer.webgl.Map.prototype.renderFrame = function(frameState) {
 
     var fragmentShader, vertexShader;
     if (useColor) {
-      fragmentShader = ol.renderer.webgl.map.shader.ColorFragment.getInstance();
-      vertexShader = ol.renderer.webgl.map.shader.ColorVertex.getInstance();
+      fragmentShader = ol.renderer.webgl.map.shader.ColorFragment;
+      vertexShader = ol.renderer.webgl.map.shader.ColorVertex;
     } else {
       fragmentShader =
-          ol.renderer.webgl.map.shader.DefaultFragment.getInstance();
-      vertexShader = ol.renderer.webgl.map.shader.DefaultVertex.getInstance();
+          ol.renderer.webgl.map.shader.DefaultFragment;
+      vertexShader = ol.renderer.webgl.map.shader.DefaultVertex;
     }
 
-    var program = this.getProgram(fragmentShader, vertexShader);
+    var program = this.getProgram(vertexShader, fragmentShader);
     gl.useProgram(program);
 
     if (useColor) {

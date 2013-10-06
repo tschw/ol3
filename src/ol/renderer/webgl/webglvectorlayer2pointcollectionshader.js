@@ -4,17 +4,13 @@ goog.require('ol.webgl.shader');
 /**
  * @constructor
  * @extends {ol.webgl.shader.Fragment}
- * @param {WebGLRenderingContext=} opt_gl GL.
+ * @param {WebGLRenderingContext} gl GL.
  */
-ol.renderer.webgl.vectorlayer2.shader.PointCollectionFragment = function(opt_gl) {
-  var source = ol.renderer.webgl.vectorlayer2.shader.PointCollectionFragment.SOURCE;
-  if (goog.isDef(opt_gl)) {
-    source = ol.renderer.webgl.vectorlayer2.shader.PointCollection.sourcePreamble_(opt_gl) + source;
-  }
-  goog.base(this, source);
+ol.renderer.webgl.vectorlayer2.shader.PointCollectionFragment = function(gl) {
+  goog.base(this,
+    ol.renderer.webgl.vectorlayer2.shader.PointCollection.sourcePreamble_(gl) + ol.renderer.webgl.vectorlayer2.shader.PointCollectionFragment.SOURCE);
 };
 goog.inherits(ol.renderer.webgl.vectorlayer2.shader.PointCollectionFragment, ol.webgl.shader.Fragment);
-goog.addSingletonGetter(ol.renderer.webgl.vectorlayer2.shader.PointCollectionFragment);
 /**
  * @const
  * @type {string}
@@ -35,17 +31,13 @@ ol.renderer.webgl.vectorlayer2.shader.PointCollectionFragment.SOURCE = goog.DEBU
 /**
  * @constructor
  * @extends {ol.webgl.shader.Vertex}
- * @param {WebGLRenderingContext=} opt_gl GL.
+ * @param {WebGLRenderingContext} gl GL.
  */
-ol.renderer.webgl.vectorlayer2.shader.PointCollectionVertex = function(opt_gl) {
-  var source = ol.renderer.webgl.vectorlayer2.shader.PointCollectionVertex.SOURCE;
-  if (goog.isDef(opt_gl)) {
-    source = ol.renderer.webgl.vectorlayer2.shader.PointCollection.sourcePreamble_(opt_gl) + source;
-  }
-  goog.base(this, source);
+ol.renderer.webgl.vectorlayer2.shader.PointCollectionVertex = function(gl) {
+  goog.base(this,
+    ol.renderer.webgl.vectorlayer2.shader.PointCollection.sourcePreamble_(gl) + ol.renderer.webgl.vectorlayer2.shader.PointCollectionVertex.SOURCE);
 };
 goog.inherits(ol.renderer.webgl.vectorlayer2.shader.PointCollectionVertex, ol.webgl.shader.Vertex);
-goog.addSingletonGetter(ol.renderer.webgl.vectorlayer2.shader.PointCollectionVertex);
 /**
  * @const
  * @type {string}

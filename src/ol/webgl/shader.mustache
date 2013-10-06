@@ -12,18 +12,13 @@ goog.require('{{.}}');
 /**
  * @constructor
  * @extends {ol.webgl.shader.Fragment}
- * @param {WebGLRenderingContext=} opt_gl GL.
+ * @param {WebGLRenderingContext} gl GL.
  */
-{{className}}Fragment = function(opt_gl) {
-
-  var source = {{className}}Fragment.SOURCE;
-  if (goog.isDef(opt_gl)) {
-    source = {{namespace}}.sourcePreamble_(opt_gl) + source;
-  }
-  goog.base(this, source);
+{{className}}Fragment = function(gl) {
+  goog.base(this,
+    {{namespace}}.sourcePreamble_(gl) + {{className}}Fragment.SOURCE);
 };
 goog.inherits({{className}}Fragment, ol.webgl.shader.Fragment);
-goog.addSingletonGetter({{className}}Fragment);
 
 
 /**
@@ -53,17 +48,13 @@ goog.addSingletonGetter({{className}}Fragment);
 /**
  * @constructor
  * @extends {ol.webgl.shader.Vertex}
- * @param {WebGLRenderingContext=} opt_gl GL.
+ * @param {WebGLRenderingContext} gl GL.
  */
-{{className}}Vertex = function(opt_gl) {
-  var source = {{className}}Vertex.SOURCE;
-  if (goog.isDef(opt_gl)) {
-    source = {{namespace}}.sourcePreamble_(opt_gl) + source;
-  }
-  goog.base(this, source);
+{{className}}Vertex = function(gl) {
+  goog.base(this,
+    {{namespace}}.sourcePreamble_(gl) + {{className}}Vertex.SOURCE);
 };
 goog.inherits({{className}}Vertex, ol.webgl.shader.Vertex);
-goog.addSingletonGetter({{className}}Vertex);
 
 
 /**

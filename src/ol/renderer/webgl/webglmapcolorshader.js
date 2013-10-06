@@ -4,17 +4,13 @@ goog.require('ol.webgl.shader');
 /**
  * @constructor
  * @extends {ol.webgl.shader.Fragment}
- * @param {WebGLRenderingContext=} opt_gl GL.
+ * @param {WebGLRenderingContext} gl GL.
  */
-ol.renderer.webgl.map.shader.ColorFragment = function(opt_gl) {
-  var source = ol.renderer.webgl.map.shader.ColorFragment.SOURCE;
-  if (goog.isDef(opt_gl)) {
-    source = ol.renderer.webgl.map.shader.Color.sourcePreamble_(opt_gl) + source;
-  }
-  goog.base(this, source);
+ol.renderer.webgl.map.shader.ColorFragment = function(gl) {
+  goog.base(this,
+    ol.renderer.webgl.map.shader.Color.sourcePreamble_(gl) + ol.renderer.webgl.map.shader.ColorFragment.SOURCE);
 };
 goog.inherits(ol.renderer.webgl.map.shader.ColorFragment, ol.webgl.shader.Fragment);
-goog.addSingletonGetter(ol.renderer.webgl.map.shader.ColorFragment);
 /**
  * @const
  * @type {string}
@@ -35,17 +31,13 @@ ol.renderer.webgl.map.shader.ColorFragment.SOURCE = goog.DEBUG ?
 /**
  * @constructor
  * @extends {ol.webgl.shader.Vertex}
- * @param {WebGLRenderingContext=} opt_gl GL.
+ * @param {WebGLRenderingContext} gl GL.
  */
-ol.renderer.webgl.map.shader.ColorVertex = function(opt_gl) {
-  var source = ol.renderer.webgl.map.shader.ColorVertex.SOURCE;
-  if (goog.isDef(opt_gl)) {
-    source = ol.renderer.webgl.map.shader.Color.sourcePreamble_(opt_gl) + source;
-  }
-  goog.base(this, source);
+ol.renderer.webgl.map.shader.ColorVertex = function(gl) {
+  goog.base(this,
+    ol.renderer.webgl.map.shader.Color.sourcePreamble_(gl) + ol.renderer.webgl.map.shader.ColorVertex.SOURCE);
 };
 goog.inherits(ol.renderer.webgl.map.shader.ColorVertex, ol.webgl.shader.Vertex);
-goog.addSingletonGetter(ol.renderer.webgl.map.shader.ColorVertex);
 /**
  * @const
  * @type {string}

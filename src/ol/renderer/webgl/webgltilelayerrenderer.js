@@ -32,19 +32,6 @@ ol.renderer.webgl.TileLayer = function(mapRenderer, tileLayer) {
 
   /**
    * @private
-   * @type {ol.webgl.shader.Fragment}
-   */
-  this.fragmentShader_ =
-      ol.renderer.webgl.tilelayer.shader.Fragment.getInstance();
-
-  /**
-   * @private
-   * @type {ol.webgl.shader.Vertex}
-   */
-  this.vertexShader_ = ol.renderer.webgl.tilelayer.shader.Vertex.getInstance();
-
-  /**
-   * @private
    * @type {ol.renderer.webgl.tilelayer.shader.Locations}
    */
   this.locations_ = null;
@@ -173,7 +160,8 @@ ol.renderer.webgl.TileLayer.prototype.renderFrame =
     gl.disable(goog.webgl.BLEND);
 
     var program = mapRenderer.getProgram(
-        this.fragmentShader_, this.vertexShader_);
+        ol.renderer.webgl.tilelayer.shader.Vertex,
+        ol.renderer.webgl.tilelayer.shader.Fragment);
     gl.useProgram(program);
     if (goog.isNull(this.locations_)) {
       this.locations_ =

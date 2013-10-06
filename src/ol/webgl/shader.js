@@ -2,12 +2,14 @@ goog.provide('ol.webgl.shader');
 
 goog.require('goog.functions');
 goog.require('goog.webgl');
+goog.require('ol.typeInfo.EnumerableType');
 goog.require('ol.webgl');
 
 
 
 /**
  * @constructor
+ * @implements {ol.typeInfo.EnumerableType}
  * @param {string} source Source.
  */
 ol.webgl.Shader = function(source) {
@@ -17,11 +19,18 @@ ol.webgl.Shader = function(source) {
    * @type {string}
    */
   this.source_ = source;
-
 };
 
 
 /**
+ * Used to identify the concrete subclass.
+ * @override
+ */
+ol.webgl.Shader.prototype.typeId = 0;
+
+
+/**
+ * WebGL type (VERTEX_SHADER or FRAGMENT_SHADER).
  * @return {number} Type.
  */
 ol.webgl.Shader.prototype.getType = goog.abstractMethod;

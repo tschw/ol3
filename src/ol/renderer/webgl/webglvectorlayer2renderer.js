@@ -238,8 +238,8 @@ ol.renderer.webgl.VectorLayer2.prototype.prepareRenderer_ =
   if (goog.isNull(batchRenderer)) {
 
     var program = mapRenderer.getProgram(
-        new ol.renderer.webgl.VectorRenderShaderFragment(gl),
-        new ol.renderer.webgl.VectorRenderShaderVertex(gl));
+        ol.renderer.webgl.VectorRenderShaderVertex,
+        ol.renderer.webgl.VectorRenderShaderFragment);
     var locations = new ol.renderer.webgl.
         VectorRenderShader.Locations(gl, program);
 
@@ -351,11 +351,11 @@ ol.renderer.webgl.VectorLayer2.prototype.renderPointCollections =
   var mapRenderer = this.getWebGLMapRenderer();
   var gl = mapRenderer.getGL();
 
-  var fragmentShader = ol.renderer.webgl.vectorlayer2.shader.
-      PointCollectionFragment.getInstance();
   var vertexShader = ol.renderer.webgl.vectorlayer2.shader.
-      PointCollectionVertex.getInstance();
-  var program = mapRenderer.getProgram(fragmentShader, vertexShader);
+      PointCollectionVertex;
+  var fragmentShader = ol.renderer.webgl.vectorlayer2.shader.
+      PointCollectionFragment;
+  var program = mapRenderer.getProgram(vertexShader, fragmentShader);
   gl.useProgram(program);
   if (goog.isNull(this.pointCollectionLocations_)) {
     this.pointCollectionLocations_ =
