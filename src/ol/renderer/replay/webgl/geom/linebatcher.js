@@ -25,45 +25,6 @@ goog.inherits(
 
 
 /**
- * Generate vertex data for a linear ring from a range of input coordinates
- * stored in a flat array.
- *
- * @param {ol.renderer.replay.api.Numbers} coords
- *    Flat array of 2D input coordinates.
- * @param {number} offset Start index in input array.
- * @param {number} end End index (exclusive).
- * @param {number=} opt_iBase Index of next vertex.
- * @return {number} Index of next vertex.
- */
-ol.renderer.replay.webgl.geom.LineBatcher.prototype.
-    linearRing = function(coords, offset, end, opt_iBase) {
-
-  var vertices = this.context.vertices,
-      segment =
-      ol.renderer.replay.webgl.geom.LineBatcher.FLAGS_SEGMENT_;
-  var iStride = segment.length;
-
-  // Vertex data (last, all, first)
-  ol.renderer.replay.webgl.geom.gpuData.emitVertexGroup(
-      vertices, segment, coords, end - 2);
-  ol.renderer.replay.webgl.geom.gpuData.emitVertexGroups(
-      vertices, segment, coords, offset, 2, end);
-  ol.renderer.replay.webgl.geom.gpuData.emitVertexGroup(
-      vertices, segment, coords, offset);
-
-  // Index data
-  var i = opt_iBase || this.context.nextVertexIndex,
-      nCoords = (end - offset) / 2;
-  this.emitLineSegmentsIndices(i, nCoords, iStride, i);
-
-  // Advance by nCoords coordinates plus two sentinels
-  i += (nCoords + 2) * iStride;
-  this.context.nextVertexIndex = i;
-  return i;
-};
-
-
-/**
  * @override
  */
 ol.renderer.replay.webgl.geom.LineBatcher.prototype.encodeGeometries =
@@ -89,7 +50,7 @@ ol.renderer.replay.webgl.geom.LineBatcher.prototype.encodeGeometries =
       segment =
       ol.renderer.replay.webgl.geom.LineBatcher.FLAGS_SEGMENT_;
 
-  for (j = 0, n = offsets.length; j < n; ++j) {
+  for (j = 0, n = offsets.length; j < n; ++j, offset = end) {
 
     end = offsets[j];
     last = end - 2;
@@ -99,7 +60,8 @@ ol.renderer.replay.webgl.geom.LineBatcher.prototype.encodeGeometries =
     if (coords[offset] == coords[last] &&
         coords[offset + 1] == coords[last + 1]) {
 
-      i = this.linearRing(coords, offset, last, i);
+      i = ol.renderer.replay.webgl.geom.LineBatcher.
+          linearRingImpl_(vertices, indices, coords, offset, last, i);
       continue;
     }
 
@@ -127,17 +89,55 @@ ol.renderer.replay.webgl.geom.LineBatcher.prototype.encodeGeometries =
     ol.renderer.replay.webgl.geom.gpuData.emitQuadIndices(
         indices, i + 8, i + 9, i + 10, i + 11);
     //  B==C==...==X==Y==
-    i = this.emitLineSegmentsIndices(i + 10, nCoords - 2, 5);
+    i = ol.renderer.replay.webgl.geom.LineBatcher.
+        emitLineSegmentsIndices_(indices, i + 10, nCoords - 2, 5);
     //  [Z]=|Z|
     ol.renderer.replay.webgl.geom.gpuData.emitQuadIndices(
         indices, i, i + 1, i + 8, i + 9);
 
     i += 4 * 5;
-
-    offset = end;
   } // for
 
   this.context.nextVertexIndex = i;
+};
+
+
+/**
+ * Prepare the given context for line rendering.
+ * This method is intended to be used from other Batchers.
+ * @param {ol.renderer.replay.webgl.BatchBuilder} context
+ * @param {ol.Color} color
+ * @param {number} width
+ * @param {Array.<number>=} opt_tmpArray Array to be used
+ *    to encode the style to avoid allocation.
+ */
+ol.renderer.replay.webgl.geom.LineBatcher.prepareSetStyle =
+    function(context, color, width, opt_tmpArray) {
+
+  context.selectType(/** @type {?} */(
+      ol.renderer.replay.input.LineStrings.prototype.typeId));
+
+  var style = opt_tmpArray || [];
+  ol.renderer.replay.webgl.geom.LineBatcher.encodeStyle_(style, color, width);
+  context.requestStyle(style);
+};
+
+
+/**
+ * Render a ring to an appropriately prepared context.
+ * This method is intended to be used from other Batchers.
+ *
+ * @param {ol.renderer.replay.webgl.BatchBuilder} context
+ * @param {ol.renderer.replay.api.Numbers} coords
+ * @param {number} offset
+ * @param {number} end
+ */
+ol.renderer.replay.webgl.geom.LineBatcher.linearRing =
+    function(context, coords, offset, end) {
+
+  context.nextVertexIndex = ol.renderer.replay.webgl.geom.LineBatcher.
+      linearRingImpl_(context.vertices, context.indices,
+          coords, offset, end, context.nextVertexIndex);
 };
 
 
@@ -155,6 +155,45 @@ ol.renderer.replay.webgl.geom.LineBatcher.encodeStyle_ =
   styleData[0] = width * 0.5;
   styleData[1] = ol.renderer.replay.webgl.geom.gpuData.encodeRGB(color);
   styleData[2] = color.a;
+};
+
+
+/**
+ * Generate vertex data for a linear ring from a range of input coordinates
+ * stored in a flat array.
+ *
+ * @param {Array.<number>} vertices
+ * @param {Array.<number>} indices
+ * @param {ol.renderer.replay.api.Numbers} coords
+ *    Flat array of 2D input coordinates.
+ * @param {number} offset Start index in input array.
+ * @param {number} end End index (exclusive).
+ * @param {number} iBase Index of next vertex.
+ * @return {number} Index of next vertex.
+ * @private
+ */
+ol.renderer.replay.webgl.geom.LineBatcher.linearRingImpl_ =
+    function(vertices, indices, coords, offset, end, iBase) {
+
+  var segment =
+      ol.renderer.replay.webgl.geom.LineBatcher.FLAGS_SEGMENT_;
+  var iStride = segment.length;
+
+  // Vertex data (last, all, first)
+  ol.renderer.replay.webgl.geom.gpuData.emitVertexGroup(
+      vertices, segment, coords, end - 2);
+  ol.renderer.replay.webgl.geom.gpuData.emitVertexGroups(
+      vertices, segment, coords, offset, 2, end);
+  ol.renderer.replay.webgl.geom.gpuData.emitVertexGroup(
+      vertices, segment, coords, offset);
+
+  // Index data
+  var nCoords = (end - offset) / 2;
+  ol.renderer.replay.webgl.geom.LineBatcher.
+      emitLineSegmentsIndices_(indices, iBase, nCoords, iStride, iBase);
+
+  // Advance by nCoords coordinates plus two sentinels
+  return iBase + (nCoords + 2) * iStride;
 };
 
 
@@ -231,18 +270,18 @@ ol.renderer.replay.webgl.geom.LineBatcher.FLAGS_TERMINAL_ = [
 /**
  * Emit indices for n line segments.
  *
+ * @param {Array.<number>} indices Destination array.
  * @param {number} i First index to use.
  * @param {number} n Number of segments to emit.
  * @param {number} iStride Index stride.
  * @param {number=} opt_iNext Outgoing base index of last segment.
  * @return {number} Outgoing base index of last segment.
- * @protected
+ * @private
  */
-ol.renderer.replay.webgl.geom.LineBatcher.prototype.
-    emitLineSegmentsIndices =
-    function(i, n, iStride, opt_iNext) {
+ol.renderer.replay.webgl.geom.LineBatcher.emitLineSegmentsIndices_ =
+    function(indices, i, n, iStride, opt_iNext) {
 
-  var j, indices = this.context.indices;
+  var j;
 
   while (--n > 0) {
 
