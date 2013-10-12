@@ -15,11 +15,10 @@ attribute vec4 Position0;
 attribute vec4 PositionN;
 attribute float Control;
 
-attribute vec4 Style;
+attribute vec3 Style;
 // extent
 // color (rgb)
-// opacity (floor 0..255), outline width (fract)
-// stroke color (rgb)
+// opacity (0..1)
 
 uniform vec4 Pretranslation;
 uniform mat4 Transform;
