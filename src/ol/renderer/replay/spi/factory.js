@@ -63,10 +63,9 @@ ol.renderer.replay.spi.Factory.prototype.registerGeometriesHandler =
 ol.renderer.replay.spi.Factory.prototype.create =
     function(var_args) {
 
-  // REVISIT: For some odd reason just binding goog.functions.create
-  // to define this method did not work in ADVANCED mode.
-  var args = goog.array.clone(arguments);
-  args.unshift(this.ctor_, this.geometriesHandlers_);
-  return /** type{T} */ (goog.functions.create.apply(this, args));
-
+  // Closure apparently doesn't like bound goog.functions.create when
+  // cross-typing
+  goog.array.splice(
+      arguments, 0, 0, this.ctor_, this.geometriesHandlers_);
+  return /** type{T} */ (goog.functions.create.apply(this, arguments));
 };
