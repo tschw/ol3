@@ -200,9 +200,8 @@ ol.renderer.replay.webgl.geom.LineBatcher.linearRingImpl_ =
 /**
  * Edge control flags as processed by the vertex shader.
  * @enum {number}
- * @private
  */
-ol.renderer.replay.webgl.geom.LineBatcher.SurfaceFlags_ = {
+ol.renderer.replay.webgl.geom.LineBatcher.SurfaceFlags = {
 
   // TODO tidy encoding
 
@@ -213,11 +212,14 @@ ol.renderer.replay.webgl.geom.LineBatcher.SurfaceFlags_ = {
   OUT_LEFT: 2,
   OUT_RIGHT: 6,
 
-  TERMINAL: 8,
   TERMINAL_IN_LEFT: 8,
   TERMINAL_IN_RIGHT: 12,
   TERMINAL_OUT_LEFT: 10,
   TERMINAL_OUT_RIGHT: 14,
+
+  OUTGOING: 2,
+  RIGHT: 4,
+  TERMINAL: 8,
 
   UNREFERENCED: 36
 };
@@ -227,21 +229,21 @@ ol.renderer.replay.webgl.geom.LineBatcher.SurfaceFlags_ = {
  * Surface flags for a regular line segment.
  *
  * @type {Array.<
- *      ol.renderer.replay.webgl.geom.LineBatcher.SurfaceFlags_>}
+ *      ol.renderer.replay.webgl.geom.LineBatcher.SurfaceFlags>}
  * @private
  * @const
  */
 ol.renderer.replay.webgl.geom.LineBatcher.FLAGS_SEGMENT_ = [
   ol.renderer.replay.
-      webgl.geom.LineBatcher.SurfaceFlags_.IN_LEFT,
+      webgl.geom.LineBatcher.SurfaceFlags.IN_LEFT,
   ol.renderer.replay.
-      webgl.geom.LineBatcher.SurfaceFlags_.IN_RIGHT,
+      webgl.geom.LineBatcher.SurfaceFlags.IN_RIGHT,
   ol.renderer.replay.
-      webgl.geom.LineBatcher.SurfaceFlags_.CENTER,
+      webgl.geom.LineBatcher.SurfaceFlags.CENTER,
   ol.renderer.replay.
-      webgl.geom.LineBatcher.SurfaceFlags_.OUT_LEFT,
+      webgl.geom.LineBatcher.SurfaceFlags.OUT_LEFT,
   ol.renderer.replay.
-      webgl.geom.LineBatcher.SurfaceFlags_.OUT_RIGHT
+      webgl.geom.LineBatcher.SurfaceFlags.OUT_RIGHT
 ];
 
 
@@ -249,21 +251,21 @@ ol.renderer.replay.webgl.geom.LineBatcher.FLAGS_SEGMENT_ = [
  * Surface flags at line ends.
  *
  * @type {Array.<
- *      ol.renderer.replay.webgl.geom.LineBatcher.SurfaceFlags_>}
+ *      ol.renderer.replay.webgl.geom.LineBatcher.SurfaceFlags>}
  * @private
  * @const
  */
 ol.renderer.replay.webgl.geom.LineBatcher.FLAGS_TERMINAL_ = [
   ol.renderer.replay.
-      webgl.geom.LineBatcher.SurfaceFlags_.TERMINAL_IN_LEFT,
+      webgl.geom.LineBatcher.SurfaceFlags.TERMINAL_IN_LEFT,
   ol.renderer.replay.
-      webgl.geom.LineBatcher.SurfaceFlags_.TERMINAL_IN_RIGHT,
+      webgl.geom.LineBatcher.SurfaceFlags.TERMINAL_IN_RIGHT,
   ol.renderer.replay.
-      webgl.geom.LineBatcher.SurfaceFlags_.UNREFERENCED,
+      webgl.geom.LineBatcher.SurfaceFlags.UNREFERENCED,
   ol.renderer.replay.
-      webgl.geom.LineBatcher.SurfaceFlags_.TERMINAL_OUT_LEFT,
+      webgl.geom.LineBatcher.SurfaceFlags.TERMINAL_OUT_LEFT,
   ol.renderer.replay.
-      webgl.geom.LineBatcher.SurfaceFlags_.TERMINAL_OUT_RIGHT
+      webgl.geom.LineBatcher.SurfaceFlags.TERMINAL_OUT_RIGHT
 ];
 
 

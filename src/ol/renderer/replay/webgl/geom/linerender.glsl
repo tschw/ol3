@@ -74,10 +74,11 @@ vec2 safeNormalize(vec2 v) {
     return v * (frob > 0.0 ? inversesqrt(frob) : 0.0);
 }
 
-const float CTRL_LINE_CENTER = 16.0;
-const float CTRL_TERMINAL = 8.0;
-const float CTRL_RIGHT_EDGE = 4.0;
-const float CTRL_OUTGOING_EDGE = 2.0;
+//! JSREQUIRE ol.renderer.replay.webgl.geom.LineBatcher
+//! JSCONST CTRL_LINE_CENTER   ol.renderer.replay.webgl.geom.LineBatcher.SurfaceFlags.CENTER.toFixed(1)
+//! JSCONST CTRL_TERMINAL      ol.renderer.replay.webgl.geom.LineBatcher.SurfaceFlags.TERMINAL.toFixed(1)
+//! JSCONST CTRL_RIGHT_EDGE    ol.renderer.replay.webgl.geom.LineBatcher.SurfaceFlags.RIGHT.toFixed(1)
+//! JSCONST CTRL_OUTGOING_EDGE ol.renderer.replay.webgl.geom.LineBatcher.SurfaceFlags.OUTGOING.toFixed(1)
 
 vec2 lineExtrusion(out vec2 texCoord,
                    vec2 coordPrev, vec2 coordHere, vec2 coordNext,
