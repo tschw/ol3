@@ -25,14 +25,16 @@ goog.inherits({{className}}Fragment, ol.webgl.shader.Fragment);
  * @const
  * @type {string}
  */
-{{className}}Fragment.DEBUG_SOURCE = '{{{getOriginalFragmentSource}}}';
+{{className}}Fragment.DEBUG_SOURCE =
+    'precision mediump float;\n{{{getOriginalFragmentSource}}}';
 
 
 /**
  * @const
  * @type {string}
  */
-{{className}}Fragment.OPTIMIZED_SOURCE = '{{{getFragmentSource}}}';
+{{className}}Fragment.OPTIMIZED_SOURCE =
+    'precision mediump float;\n{{{getFragmentSource}}}';
 
 
 /**
@@ -61,14 +63,16 @@ goog.inherits({{className}}Vertex, ol.webgl.shader.Vertex);
  * @const
  * @type {string}
  */
-{{className}}Vertex.DEBUG_SOURCE = '{{{getOriginalVertexSource}}}';
+{{className}}Vertex.DEBUG_SOURCE =
+    'precision highp float;\n{{{getOriginalVertexSource}}}';
 
 
 /**
  * @const
  * @type {string}
  */
-{{className}}Vertex.OPTIMIZED_SOURCE = '{{{getVertexSource}}}';
+{{className}}Vertex.OPTIMIZED_SOURCE =
+    'precision highp float;\n{{{getVertexSource}}}';
 
 
 /**

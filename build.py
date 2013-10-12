@@ -127,7 +127,7 @@ INTERNAL_SRC = [
 
 GLSL_SRC = [path
             for path in ifind('src')
-            if path.endswith('.glsl')]
+            if path.endswith('.glsl') and not path.endswith('_lib.glsl')]
 
 JSDOC_SRC = [path
              for path in ifind('src')
