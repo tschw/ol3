@@ -97,6 +97,16 @@ ol.renderer.replay.spi.BatchBuilder.prototype.releaseBatch =
 
 
 /**
+ * Indicates that coordinates have been emitted that still need an
+ * invocation.
+ * @return {boolean}
+ * @protected
+ */
+ol.renderer.replay.spi.BatchBuilder.prototype.renderPending =
+    goog.abstractMethod;
+
+
+/**
  * @inheritDoc
  */
 ol.renderer.replay.spi.BatchBuilder.prototype.addGeometries =
@@ -109,10 +119,10 @@ ol.renderer.replay.spi.BatchBuilder.prototype.addGeometries =
   goog.asserts.assert(goog.isDef(batcher),
       'No Batcher registered for given geometries');
 
+  this.selectType(typeId);
+
   try {
 
-    batcher.encodeStyle(geometries);
-    this.encodeState(typeId, batcher.styleData);
     batcher.encodeGeometries(geometries);
 
   } catch (e) {
@@ -126,58 +136,91 @@ ol.renderer.replay.spi.BatchBuilder.prototype.addGeometries =
 
 
 /**
- * Encode an instruction sequence that ensures a certain state.
- *
- * Requests reconfiguration when called without arguments. An explicit
- * null argument for the type id will emit eventually pending render
- * calls but not configure the render - 'encodeState(null)' should be
- * called before releasing a batch.
- *
- * @param {?number=} opt_typeId Type ID.
- * @param {Array.<number>=} opt_styleData Style data.
- * @protected
+ * @param {number} typeId
+ * @private
  */
-ol.renderer.replay.spi.BatchBuilder.prototype.encodeState =
-    function(opt_typeId, opt_styleData) {
+ol.renderer.replay.spi.BatchBuilder.prototype.emitConfigure_ =
+    function(typeId) {
 
-  var typeId = opt_typeId || this.currentType_,
-      control = this.controlStream,
-      dstStyleVec = null,
-      styleChanged = false;
+  goog.asserts.assert(goog.isDefAndNotNull(typeId));
 
-  var emitConfig = typeId != this.currentType_ || ! goog.isDef(opt_typeId);
+  this.flushRender();
 
-  if (! goog.isNull(typeId)) {
+  this.controlStream.push(
+      ol.renderer.replay.spi.ControlStream.Instruction.CONFIGURE,
+      typeId);
 
-    dstStyleVec = this.styles_[typeId];
-    styleChanged = goog.isDefAndNotNull(opt_styleData) &&
-        !! ol.array.rangeCopyCountNotSame(
-            dstStyleVec, 1, opt_styleData, 0, opt_styleData.length);
+  this.batchers_[typeId].encodeConfiguration();
+  this.currentType_ = typeId;
+};
+
+
+/**
+ * Cause a CONFIGURE instruction to be emitted for the requested
+ * type, unless configured already.
+ *
+ * @param {number} typeId
+ */
+ol.renderer.replay.spi.BatchBuilder.prototype.selectType =
+    function(typeId) {
+
+  goog.asserts.assert(goog.isDefAndNotNull(typeId));
+
+  if (typeId !== this.currentType_) {
+    if (! goog.isNull(this.currentType_)) {
+      // Invalidate style
+      this.styles_[this.currentType_][1] = Number.NaN;
+    }
+    this.emitConfigure_(typeId);
+  }
+};
+
+
+/**
+ * Enforce a CONFIGURE instruction to be emitted for the current
+ * type.
+ */
+ol.renderer.replay.spi.BatchBuilder.prototype.forceReconfigure =
+    function() {
+
+  goog.asserts.assert(! goog.isNull(this.currentType_));
+  this.emitConfigure_(this.currentType_);
+};
+
+
+/**
+ * Cause a SET_STYLE instruction to be emitted unless the style
+ * data is already set.
+ *
+ * @param {Array.<number>} styleData
+ */
+ol.renderer.replay.spi.BatchBuilder.prototype.requestStyle =
+    function(styleData) {
+
+  var typeId = this.currentType_;
+  goog.asserts.assert(! goog.isNull(typeId));
+  var dstStyleVec = this.styles_[typeId];
+
+  if (!! ol.array.rangeCopyCountNotSame(
+      dstStyleVec, 1, styleData, 0, styleData.length)) {
+
+    this.flushRender();
+    Array.prototype.push.apply(this.controlStream, dstStyleVec);
   }
 
-  // Emit pending RENDER
-  if ((emitConfig || styleChanged || goog.isNull(opt_typeId)) &&
-      ! goog.isNull(this.currentType_)) {
+};
 
-    control.push(
+
+/**
+ * Encode a RENDER instruction when {@link #renderPending} returns
+ * true.
+ */
+ol.renderer.replay.spi.BatchBuilder.prototype.flushRender =
+    function() {
+
+  if (! goog.isNull(this.currentType_) && this.renderPending()) {
+    this.controlStream.push(
         ol.renderer.replay.spi.ControlStream.Instruction.RENDER);
     this.batchers_[this.currentType_].encodeRender();
-  }
-
-  // Emit CONFIGURE
-  if (emitConfig && goog.isDefAndNotNull(typeId)) {
-
-    control.push(
-        ol.renderer.replay.spi.ControlStream.Instruction.CONFIGURE,
-        typeId);
-    this.batchers_[typeId].encodeConfiguration();
-    this.currentType_ = typeId;
-
-    styleChanged = true; // force setting the style
-  }
-
-  // Emit SET_STYLE
-  if (styleChanged) {
-    control.push.apply(control, dstStyleVec);
   }
 };

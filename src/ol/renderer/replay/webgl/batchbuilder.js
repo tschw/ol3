@@ -11,8 +11,7 @@ goog.require('ol.renderer.replay.webgl.Batch');
 
 /**
  * @constructor
- * @extends {ol.renderer.replay.spi.BatchBuilder.<
- *    ol.renderer.replay.webgl.BatchBuilder>}
+ * @extends {ol.renderer.replay.spi.BatchBuilder}
  * @param {ol.renderer.replay.spi.GeometriesHandlerCtors} batcherCtors
  */
 ol.renderer.replay.webgl.BatchBuilder = function(batcherCtors) {
@@ -62,7 +61,7 @@ ol.renderer.replay.webgl.BatchBuilder.prototype.reset =
 ol.renderer.replay.webgl.BatchBuilder.prototype.releaseBatch =
     function() {
 
-  this.encodeState(null);
+  this.flushRender();
 
   return new ol.renderer.replay.webgl.Batch(
       this.controlStream, this.indices, this.vertices, this.batchErrorState);
@@ -70,22 +69,30 @@ ol.renderer.replay.webgl.BatchBuilder.prototype.releaseBatch =
 
 
 /**
- * @protected
+ * @inheritDoc
+ */
+ol.renderer.replay.webgl.BatchBuilder.prototype.renderPending =
+    function() {
+
+  return !! (this.indices.length - this.nIndicesFlushed_);
+};
+
+
+/**
+ * Restart index counting and push current vertex buffer end as offset.
  */
 ol.renderer.replay.webgl.BatchBuilder.prototype.pushConfig =
     function() {
-  // Restart index counting and push current vertex buffer end as offset
   this.nextVertexIndex = 0;
   this.controlStream.push(this.vertices.length * 4);
 };
 
 
 /**
- * @protected
+ * Push number of indices to render and mark those as flushed.
  */
 ol.renderer.replay.webgl.BatchBuilder.prototype.pushIndices =
     function() {
-  // Push number of indices to render and mark those as "flushed"
   var n = this.indices.length - this.nIndicesFlushed_;
   this.controlStream.push(n);
   this.nIndicesFlushed_ = this.indices.length;

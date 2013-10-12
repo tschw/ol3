@@ -11,13 +11,7 @@ goog.require('ol.renderer.replay.spi.GeometriesHandler');
  * @constructor
  * @implements {ol.renderer.replay.spi.GeometriesHandler.<BatchBuilder>}
  */
-ol.renderer.replay.spi.Batcher = function() {
-
-  /**
-   * @type {Array.<number>}
-   */
-  this.styleData = [];
-};
+ol.renderer.replay.spi.Batcher = function() {};
 
 
 /**
@@ -27,8 +21,7 @@ ol.renderer.replay.spi.Batcher.prototype.context = null;
 
 
 /**
- * Encode the configuration for the corresponding render to the control
- * stream.
+ * Encode the configuration for the corresponding render,
  */
 ol.renderer.replay.spi.Batcher.prototype.encodeConfiguration =
     ol.emptyMethod;
@@ -41,16 +34,6 @@ ol.renderer.replay.spi.Batcher.prototype.encodeConfiguration =
  */
 ol.renderer.replay.spi.Batcher.prototype.encodeGeometries =
     goog.abstractMethod;
-
-
-/**
- * Encode the style of the Geometries to 'this.styleData'. This method is
- * empty if the Geometries are styled individually.
- *
- * @param {ol.renderer.replay.api.Geometries} geometries
- */
-ol.renderer.replay.spi.Batcher.prototype.encodeStyle =
-    ol.emptyMethod;
 
 
 /**

@@ -12,27 +12,16 @@ goog.require('ol.renderer.replay.webgl.geom.gpuData');
  */
 ol.renderer.replay.webgl.geom.LineBatcher = function() {
   goog.base(this);
+
+  /**
+   * @type {Array.<number>}
+   * @private
+   */
+  this.style_ = [];
 };
 goog.inherits(
     ol.renderer.replay.webgl.geom.LineBatcher,
     ol.renderer.replay.webgl.Batcher);
-
-
-/**
- * Manually set style.
- *
- * @param {ol.Color} color
- * @param {number} width
- */
-ol.renderer.replay.webgl.geom.LineBatcher.prototype.setStyle =
-    function(color, width) {
-
-  // TODO tighten encoding / add miter limit
-  var style = this.styleData;
-  style[0] = width * 0.5;
-  style[1] = ol.renderer.replay.webgl.geom.gpuData.encodeRGB(color);
-  style[2] = color.a * 255;
-};
 
 
 /**
@@ -77,24 +66,15 @@ ol.renderer.replay.webgl.geom.LineBatcher.prototype.
 /**
  * @override
  */
-ol.renderer.replay.webgl.geom.LineBatcher.prototype.encodeStyle =
-    function(geometries) {
-
-  var lineStrings = /** @type {ol.renderer.replay.input.LineStrings} */
-      (geometries);
-
-  this.setStyle(lineStrings.color, lineStrings.width);
-};
-
-
-/**
- * @override
- */
 ol.renderer.replay.webgl.geom.LineBatcher.prototype.encodeGeometries =
     function(geometries) {
 
   var lineStrings = /** @type {ol.renderer.replay.input.LineStrings} */
       (geometries);
+
+  ol.renderer.replay.webgl.geom.LineBatcher.encodeStyle_(
+      this.style_, lineStrings.color, lineStrings.width);
+  this.context.requestStyle(this.style_);
 
   var coords = lineStrings.coords,
       offsets = lineStrings.offsets,
@@ -158,6 +138,23 @@ ol.renderer.replay.webgl.geom.LineBatcher.prototype.encodeGeometries =
   } // for
 
   this.context.nextVertexIndex = i;
+};
+
+
+/**
+ * @param {Array.<number>} styleData Destination array.
+ * @param {ol.Color} color
+ * @param {number} width
+ * @private
+ */
+ol.renderer.replay.webgl.geom.LineBatcher.encodeStyle_ =
+    function(styleData, color, width) {
+
+  // TODO tighten encoding / add miter limit
+
+  styleData[0] = width * 0.5;
+  styleData[1] = ol.renderer.replay.webgl.geom.gpuData.encodeRGB(color);
+  styleData[2] = color.a;
 };
 
 
