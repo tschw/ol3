@@ -57,7 +57,7 @@ ol.webgl.Shader.prototype.isAnimated = goog.functions.FALSE;
  * @param {string} source Source.
  */
 ol.webgl.shader.Fragment = function(source) {
-  goog.base(this, source);
+  goog.base(this, 'precision mediump float;\n' + source);
 };
 goog.inherits(ol.webgl.shader.Fragment, ol.webgl.Shader);
 
@@ -77,7 +77,7 @@ ol.webgl.shader.Fragment.prototype.getType = function() {
  * @param {string} source Source.
  */
 ol.webgl.shader.Vertex = function(source) {
-  goog.base(this, source);
+  goog.base(this, 'precision highp float;\n' + source);
 };
 goog.inherits(ol.webgl.shader.Vertex, ol.webgl.Shader);
 

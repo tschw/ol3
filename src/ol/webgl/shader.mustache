@@ -26,7 +26,7 @@ goog.inherits({{className}}Fragment, ol.webgl.shader.Fragment);
  * @type {string}
  */
 {{className}}Fragment.DEBUG_SOURCE =
-    'precision mediump float;\n{{{getOriginalFragmentSource}}}';
+    '{{{getOriginalFragmentSource}}}';
 
 
 /**
@@ -34,7 +34,7 @@ goog.inherits({{className}}Fragment, ol.webgl.shader.Fragment);
  * @type {string}
  */
 {{className}}Fragment.OPTIMIZED_SOURCE =
-    'precision mediump float;\n{{{getFragmentSource}}}';
+    '{{{getFragmentSource}}}';
 
 
 /**
@@ -64,7 +64,7 @@ goog.inherits({{className}}Vertex, ol.webgl.shader.Vertex);
  * @type {string}
  */
 {{className}}Vertex.DEBUG_SOURCE =
-    'precision highp float;\n{{{getOriginalVertexSource}}}';
+    '{{{getOriginalVertexSource}}}';
 
 
 /**
@@ -72,7 +72,7 @@ goog.inherits({{className}}Vertex, ol.webgl.shader.Vertex);
  * @type {string}
  */
 {{className}}Vertex.OPTIMIZED_SOURCE =
-    'precision highp float;\n{{{getVertexSource}}}';
+    '{{{getVertexSource}}}';
 
 
 /**
@@ -122,11 +122,11 @@ goog.inherits({{className}}Vertex, ol.webgl.shader.Vertex);
  */
 {{namespace}}.sourcePreamble_ = function(gl) {
 
-  return (
+  return ('' +
 {{#jsConsts}}
-      '\n#define ' +
+      'const float ' +
         (goog.DEBUG ? '{{originalName}}' : '{{shortName}}') +
-        ' ' + ({{expression}}) +
+        ' = float(' + ({{expression}}) + ');' +
 {{/jsConsts}}
       '\n');
 };
