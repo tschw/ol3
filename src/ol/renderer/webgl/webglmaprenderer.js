@@ -95,10 +95,13 @@ ol.renderer.webgl.Map = function(container, map) {
    * @type {WebGLRenderingContext}
    */
   this.gl_ = ol.webgl.getContext(this.canvas_, {
-    antialias: true,
+    blend: true,
+    alpha: true,
+    premultipliedAlpha: false,
     depth: false,
-    preserveDrawingBuffer: false,
-    stencil: false
+    stencil: false,
+    antialias: false,
+    preserveDrawingBuffer: false
   });
   goog.asserts.assert(!goog.isNull(this.gl_));
 
