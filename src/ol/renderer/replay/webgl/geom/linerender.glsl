@@ -3,6 +3,8 @@
 
 //! COMMON
 
+varying vec4 Color;
+varying vec3 Surface;
 
 
 //! VERTEX
@@ -39,7 +41,7 @@ float rcpGammaIn = RenderParams.y;
 vec2 lineExtrusion(out vec2 texCoord,
                    vec2 coordPrev, vec2 coordHere, vec2 coordNext,
                    float ctrl, float extent, float lengthOfEnds,
-                   vec2 scale, float reciprocalRelativeMiterLimit) {
+                   float reciprocalRelativeMiterLimit) {
 
     vec2 result = vec2(0.);
     texCoord = vec2(-1., 0.);
@@ -61,7 +63,7 @@ vec2 lineExtrusion(out vec2 texCoord,
 
     if (ctrl == CTRL_LINE_CENTER) {
         // Move the vertex inward and calculate texture coordinate
-        result = outward * -extent * relativeMiterLimit * scale;
+        result = outward * -extent * relativeMiterLimit;
         texCoord.x = -sgnWinding + sgnWinding * 2. * normBevelWidth / cutWidth;
         return result;
     }
@@ -120,7 +122,7 @@ vec2 lineExtrusion(out vec2 texCoord,
     }
     result += extraMove * (ctrl == CTRL_OUTGOING_EDGE ? -1. : 1.) * legDir;
 
-    return result * scale;
+    return result;
 }
 
 void main(void) {
@@ -128,24 +130,17 @@ void main(void) {
     // Basic vertex shader operation
     gl_Position = Transform * rteDecode(Position0, Pretranslation);
 
-    // Decode colors and opacity from style
-    Color_NegHorizSurfScale.rgb = decodeRGB(Style.y);
-    float lineMode = max(sign(Style.z), 0.0);
-    float alphaAndWidth = Style.z * sign(Style.z);
-    Surface_Opacity = vec3(-lineMode, 0.0, floor(alphaAndWidth) / 255.0);
-
-    // Decode line widths from style and prepare for rendering
-    float extent = Style.x * (0.5 + lineMode * 0.5);
-    float actExtent = extent + antiAliasing * 0.5;
-    Color_NegHorizSurfScale.w = -1.0 / actExtent;
+    // Decode style
+    Color = vec4(decodeRGB(Style.y), Style.z);
+    float extent = Style.x + antiAliasing * 0.5; // half the smoothing counts
+    Surface.z = -1.0 / extent; // negative scale for Surface.x
 
     // Apply to 2D position in NDC
-    gl_Position.xy += lineExtrusion(Surface_Opacity.xy,
+    gl_Position.xy += lineExtrusion(Surface.xy,
             projected(Transform * rteDecode(PositionP, Pretranslation)).xy,
             projected(gl_Position).xy,
             projected(Transform * rteDecode(PositionN, Pretranslation)).xy,
-            Control, actExtent, antiAliasing,
-            PixelScale, 0.5);
+            Control, extent, antiAliasing, 0.5) * PixelScale;
 }
 
 
@@ -156,9 +151,6 @@ uniform vec3 RenderParams;
 float antiAliasing = RenderParams.x;
 float rcpGammaOut = RenderParams.z;
 
-varying vec3 Surface_Opacity;
-varying vec4 Color_NegHorizSurfScale;
-
 
 float blendCoeff(vec2 edge0, vec2 edge1, vec2 x) {
   vec2 weight = smoothstep(edge0, edge1, x);
@@ -167,16 +159,13 @@ float blendCoeff(vec2 edge0, vec2 edge1, vec2 x) {
 
 void main(void) {
 
-    // Distance from center of surface coordinate (keep it this way;
-    // strangely the 'abs' function does not work correctly on all
-    // platforms here)
-    vec2 dist = min(Surface_Opacity.xy * sign(Surface_Opacity.xy), 1.0);
+    // Distance from center of surface coordinate
+    // ATTENTION: Do not change strange absolute computation - it is a
+    // workaround for 'abs' being effectless on a varying with ANGLE.
+    vec2 dist = min(Surface.xy * sign(Surface.xy), 1.0);
 
-    vec2 negScale = vec2(Color_NegHorizSurfScale.w, -1.0 / antiAliasing);
+    vec2 negScale = vec2(Surface.z, -1.0 / antiAliasing);
     vec2 outerEdgeMin = vec2(1.0) + negScale * antiAliasing;
-
-    float alpha = Surface_Opacity.z  * 
-        (1.0 - blendCoeff(outerEdgeMin, vec2(1.0), dist));
-
-    gl_FragColor = vec4(Color_NegHorizSurfScale.rgb, alpha);
+    float alpha = Color.a  * (1.0 - blendCoeff(outerEdgeMin, vec2(1.0), dist));
+    gl_FragColor = vec4(Color.rgb, alpha);
 }
