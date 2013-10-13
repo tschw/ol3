@@ -129,7 +129,7 @@ void main(void) {
     gl_Position = Transform * rteDecode(Position0, Pretranslation);
 
     // Decode colors and opacity from style
-    Color_NegHorizSurfScale.rgb = applyGamma(decodeRGB(Style.y), rcpGammaIn);
+    Color_NegHorizSurfScale.rgb = decodeRGB(Style.y);
     float lineMode = max(sign(Style.z), 0.0);
     float alphaAndWidth = Style.z * sign(Style.z);
     Surface_Opacity = vec3(-lineMode, 0.0, floor(alphaAndWidth) / 255.0);
@@ -178,7 +178,5 @@ void main(void) {
     float alpha = Surface_Opacity.z  * 
         (1.0 - blendCoeff(outerEdgeMin, vec2(1.0), dist));
 
-    vec3 color = applyGamma(Color_NegHorizSurfScale.rgb, rcpGammaOut);
-
-    gl_FragColor = vec4(color, alpha);
+    gl_FragColor = vec4(Color_NegHorizSurfScale.rgb, alpha);
 }
