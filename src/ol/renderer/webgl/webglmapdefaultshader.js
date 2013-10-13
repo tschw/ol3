@@ -15,12 +15,14 @@ goog.inherits(ol.renderer.webgl.map.shader.DefaultFragment, ol.webgl.shader.Frag
  * @const
  * @type {string}
  */
-ol.renderer.webgl.map.shader.DefaultFragment.DEBUG_SOURCE = '//! NAMESPACE=ol.renderer.webgl.map.shader.Default\n//! CLASS=ol.renderer.webgl.map.shader.Default\n\n\n//! COMMON\nprecision mediump float;\n\nvarying vec2 v_texCoord;\n\n\n//! FRAGMENT\nuniform float u_opacity;\nuniform sampler2D u_texture;\n\nvoid main(void) {\n  vec4 texColor = texture2D(u_texture, v_texCoord);\n  gl_FragColor.rgb = texColor.rgb;\n  gl_FragColor.a = texColor.a * u_opacity;\n}\n\n';
+ol.renderer.webgl.map.shader.DefaultFragment.DEBUG_SOURCE =
+    '//! NAMESPACE=ol.renderer.webgl.map.shader.Default\n//! CLASS=ol.renderer.webgl.map.shader.Default\n\n//! COMMON\n\nvarying vec2 v_texCoord;\n\n\n//! FRAGMENT\n\nuniform float u_opacity;\nuniform sampler2D u_texture;\n\nvoid main(void) {\n  vec4 texColor = texture2D(u_texture, v_texCoord);\n  gl_FragColor.rgb = texColor.rgb;\n  gl_FragColor.a = texColor.a * u_opacity;\n}\n\n';
 /**
  * @const
  * @type {string}
  */
-ol.renderer.webgl.map.shader.DefaultFragment.OPTIMIZED_SOURCE = 'precision mediump float;varying vec2 a;uniform float d;uniform sampler2D e;void main(){vec4 f=texture2D(e,a);gl_FragColor.rgb=f.rgb;gl_FragColor.a=f.a*d;}';
+ol.renderer.webgl.map.shader.DefaultFragment.OPTIMIZED_SOURCE =
+    'varying vec2 a;uniform float d;uniform sampler2D e;void main(){vec4 f=texture2D(e,a);gl_FragColor.rgb=f.rgb;gl_FragColor.a=f.a*d;}';
 /**
  * @const
  * @type {string}
@@ -42,12 +44,14 @@ goog.inherits(ol.renderer.webgl.map.shader.DefaultVertex, ol.webgl.shader.Vertex
  * @const
  * @type {string}
  */
-ol.renderer.webgl.map.shader.DefaultVertex.DEBUG_SOURCE = '//! NAMESPACE=ol.renderer.webgl.map.shader.Default\n//! CLASS=ol.renderer.webgl.map.shader.Default\n\n\n//! COMMON\nprecision mediump float;\n\nvarying vec2 v_texCoord;\n\n\n//! VERTEX\nattribute vec2 a_position;\nattribute vec2 a_texCoord;\n\nuniform mat4 u_texCoordMatrix;\nuniform mat4 u_projectionMatrix;\n\nvoid main(void) {\n  gl_Position = u_projectionMatrix * vec4(a_position, 0., 1.);\n  v_texCoord = (u_texCoordMatrix * vec4(a_texCoord, 0., 1.)).st;\n}\n\n\n';
+ol.renderer.webgl.map.shader.DefaultVertex.DEBUG_SOURCE =
+    '//! NAMESPACE=ol.renderer.webgl.map.shader.Default\n//! CLASS=ol.renderer.webgl.map.shader.Default\n\n//! COMMON\n\nvarying vec2 v_texCoord;\n\n\n//! VERTEX\n\nattribute vec2 a_position;\nattribute vec2 a_texCoord;\n\nuniform mat4 u_texCoordMatrix;\nuniform mat4 u_projectionMatrix;\n\nvoid main(void) {\n  gl_Position = u_projectionMatrix * vec4(a_position, 0., 1.);\n  v_texCoord = (u_texCoordMatrix * vec4(a_texCoord, 0., 1.)).st;\n}\n\n\n';
 /**
  * @const
  * @type {string}
  */
-ol.renderer.webgl.map.shader.DefaultVertex.OPTIMIZED_SOURCE = 'precision mediump float;varying vec2 a;attribute vec2 d,e;uniform mat4 b,c;void main(){gl_Position=c*vec4(d,0,1);a=(b*vec4(e,0,1)).st;}';
+ol.renderer.webgl.map.shader.DefaultVertex.OPTIMIZED_SOURCE =
+    'varying vec2 a;attribute vec2 d,e;uniform mat4 b,c;void main(){gl_Position=c*vec4(d,0,1);a=(b*vec4(e,0,1)).st;}';
 /**
  * @const
  * @type {string}
@@ -103,6 +107,6 @@ ol.renderer.webgl.map.shader.Default.Locations = function(gl, program) {
  * @return {string} Shader source preamble.
  */
 ol.renderer.webgl.map.shader.Default.sourcePreamble_ = function(gl) {
-  return (
+  return ('' +
 '\n');
 };

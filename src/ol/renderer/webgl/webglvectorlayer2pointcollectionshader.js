@@ -15,12 +15,14 @@ goog.inherits(ol.renderer.webgl.vectorlayer2.shader.PointCollectionFragment, ol.
  * @const
  * @type {string}
  */
-ol.renderer.webgl.vectorlayer2.shader.PointCollectionFragment.DEBUG_SOURCE = '//! NAMESPACE=ol.renderer.webgl.vectorlayer2.shader.PointCollection\n//! CLASS=ol.renderer.webgl.vectorlayer2.shader.PointCollection\n\n//! COMMON\nprecision mediump float;\n\n//! FRAGMENT\nuniform vec4 u_color;\n\nvoid main(void) {\n  gl_FragColor = u_color;\n}\n\n';
+ol.renderer.webgl.vectorlayer2.shader.PointCollectionFragment.DEBUG_SOURCE =
+    '//! NAMESPACE=ol.renderer.webgl.vectorlayer2.shader.PointCollection\n//! CLASS=ol.renderer.webgl.vectorlayer2.shader.PointCollection\n\n//! COMMON\n\n\n//! FRAGMENT\n\nuniform vec4 u_color;\n\nvoid main(void) {\n  gl_FragColor = u_color;\n}\n\n';
 /**
  * @const
  * @type {string}
  */
-ol.renderer.webgl.vectorlayer2.shader.PointCollectionFragment.OPTIMIZED_SOURCE = 'precision mediump float;uniform vec4 c;void main(){gl_FragColor=c;}';
+ol.renderer.webgl.vectorlayer2.shader.PointCollectionFragment.OPTIMIZED_SOURCE =
+    'uniform vec4 c;void main(){gl_FragColor=c;}';
 /**
  * @const
  * @type {string}
@@ -42,12 +44,14 @@ goog.inherits(ol.renderer.webgl.vectorlayer2.shader.PointCollectionVertex, ol.we
  * @const
  * @type {string}
  */
-ol.renderer.webgl.vectorlayer2.shader.PointCollectionVertex.DEBUG_SOURCE = '//! NAMESPACE=ol.renderer.webgl.vectorlayer2.shader.PointCollection\n//! CLASS=ol.renderer.webgl.vectorlayer2.shader.PointCollection\n\n//! COMMON\nprecision mediump float;\n\n//! VERTEX\nattribute vec2 a_position;\nuniform float u_pointSize;\nuniform mat4 u_modelViewMatrix;\n\nvoid main(void) {\n  gl_Position = u_modelViewMatrix * vec4(a_position, 0., 1.);\n  gl_PointSize = u_pointSize;\n}\n\n\n';
+ol.renderer.webgl.vectorlayer2.shader.PointCollectionVertex.DEBUG_SOURCE =
+    '//! NAMESPACE=ol.renderer.webgl.vectorlayer2.shader.PointCollection\n//! CLASS=ol.renderer.webgl.vectorlayer2.shader.PointCollection\n\n//! COMMON\n\n\n//! VERTEX\n\nattribute vec2 a_position;\n\nuniform float u_pointSize;\nuniform mat4 u_modelViewMatrix;\n\nvoid main(void) {\n  gl_Position = u_modelViewMatrix * vec4(a_position, 0., 1.);\n  gl_PointSize = u_pointSize;\n}\n\n\n';
 /**
  * @const
  * @type {string}
  */
-ol.renderer.webgl.vectorlayer2.shader.PointCollectionVertex.OPTIMIZED_SOURCE = 'precision mediump float;attribute vec2 c;uniform float a;uniform mat4 b;void main(){gl_Position=b*vec4(c,0,1);gl_PointSize=a;}';
+ol.renderer.webgl.vectorlayer2.shader.PointCollectionVertex.OPTIMIZED_SOURCE =
+    'attribute vec2 c;uniform float a;uniform mat4 b;void main(){gl_Position=b*vec4(c,0,1);gl_PointSize=a;}';
 /**
  * @const
  * @type {string}
@@ -93,6 +97,6 @@ ol.renderer.webgl.vectorlayer2.shader.PointCollection.Locations = function(gl, p
  * @return {string} Shader source preamble.
  */
 ol.renderer.webgl.vectorlayer2.shader.PointCollection.sourcePreamble_ = function(gl) {
-  return (
+  return ('' +
 '\n');
 };

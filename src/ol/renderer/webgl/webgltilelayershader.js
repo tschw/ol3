@@ -15,12 +15,14 @@ goog.inherits(ol.renderer.webgl.tilelayer.shader.Fragment, ol.webgl.shader.Fragm
  * @const
  * @type {string}
  */
-ol.renderer.webgl.tilelayer.shader.Fragment.DEBUG_SOURCE = '//! NAMESPACE=ol.renderer.webgl.tilelayer.shader\n//! CLASS=ol.renderer.webgl.tilelayer.shader.\n\n\n//! COMMON\nprecision mediump float;\n\nvarying vec2 v_texCoord;\n\n\n//! FRAGMENT\nuniform sampler2D u_texture;\n\nvoid main(void) {\n  gl_FragColor = texture2D(u_texture, v_texCoord);\n}\n\n';
+ol.renderer.webgl.tilelayer.shader.Fragment.DEBUG_SOURCE =
+    '//! NAMESPACE=ol.renderer.webgl.tilelayer.shader\n//! CLASS=ol.renderer.webgl.tilelayer.shader.\n\n//! COMMON\n\nvarying vec2 v_texCoord;\n\n\n//! FRAGMENT\n\nuniform sampler2D u_texture;\n\nvoid main(void) {\n  gl_FragColor = texture2D(u_texture, v_texCoord);\n}\n\n';
 /**
  * @const
  * @type {string}
  */
-ol.renderer.webgl.tilelayer.shader.Fragment.OPTIMIZED_SOURCE = 'precision mediump float;varying vec2 a;uniform sampler2D c;void main(){gl_FragColor=texture2D(c,a);}';
+ol.renderer.webgl.tilelayer.shader.Fragment.OPTIMIZED_SOURCE =
+    'varying vec2 a;uniform sampler2D c;void main(){gl_FragColor=texture2D(c,a);}';
 /**
  * @const
  * @type {string}
@@ -42,12 +44,14 @@ goog.inherits(ol.renderer.webgl.tilelayer.shader.Vertex, ol.webgl.shader.Vertex)
  * @const
  * @type {string}
  */
-ol.renderer.webgl.tilelayer.shader.Vertex.DEBUG_SOURCE = '//! NAMESPACE=ol.renderer.webgl.tilelayer.shader\n//! CLASS=ol.renderer.webgl.tilelayer.shader.\n\n\n//! COMMON\nprecision mediump float;\n\nvarying vec2 v_texCoord;\n\n\n//! VERTEX\nattribute vec2 a_position;\nattribute vec2 a_texCoord;\nuniform vec4 u_tileOffset;\n\nvoid main(void) {\n  gl_Position = vec4(a_position * u_tileOffset.xy + u_tileOffset.zw, 0., 1.);\n  v_texCoord = a_texCoord;\n}\n\n\n';
+ol.renderer.webgl.tilelayer.shader.Vertex.DEBUG_SOURCE =
+    '//! NAMESPACE=ol.renderer.webgl.tilelayer.shader\n//! CLASS=ol.renderer.webgl.tilelayer.shader.\n\n//! COMMON\n\nvarying vec2 v_texCoord;\n\n\n//! VERTEX\n\nattribute vec2 a_position;\nattribute vec2 a_texCoord;\nuniform vec4 u_tileOffset;\n\nvoid main(void) {\n  gl_Position = vec4(a_position * u_tileOffset.xy + u_tileOffset.zw, 0., 1.);\n  v_texCoord = a_texCoord;\n}\n\n\n';
 /**
  * @const
  * @type {string}
  */
-ol.renderer.webgl.tilelayer.shader.Vertex.OPTIMIZED_SOURCE = 'precision mediump float;varying vec2 a;attribute vec2 c,d;uniform vec4 b;void main(){gl_Position=vec4(c*b.xy+b.zw,0,1);a=d;}';
+ol.renderer.webgl.tilelayer.shader.Vertex.OPTIMIZED_SOURCE =
+    'varying vec2 a;attribute vec2 c,d;uniform vec4 b;void main(){gl_Position=vec4(c*b.xy+b.zw,0,1);a=d;}';
 /**
  * @const
  * @type {string}
@@ -93,6 +97,6 @@ ol.renderer.webgl.tilelayer.shader.Locations = function(gl, program) {
  * @return {string} Shader source preamble.
  */
 ol.renderer.webgl.tilelayer.shader.sourcePreamble_ = function(gl) {
-  return (
+  return ('' +
 '\n');
 };
