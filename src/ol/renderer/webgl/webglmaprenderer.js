@@ -593,10 +593,10 @@ ol.renderer.webgl.Map.prototype.renderFrame = function(frameState) {
     gl.drawArrays(goog.webgl.TRIANGLE_STRIP, 0, 4);
 
   }
-  // FIXME locations will be undefined when the above loop finds no
-  // FIXME visible layer
-  gl.disableVertexAttribArray(locations.a_position);
-  gl.disableVertexAttribArray(locations.a_texCoord);
+  if (goog.isDefAndNotNull(locations)) {
+    gl.disableVertexAttribArray(locations.a_position);
+    gl.disableVertexAttribArray(locations.a_texCoord);
+  }
 
   if (!this.renderedVisible_) {
     goog.style.setElementShown(this.canvas_, true);
