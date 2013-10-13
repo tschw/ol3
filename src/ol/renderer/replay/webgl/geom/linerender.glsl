@@ -4,11 +4,11 @@
 //! COMMON
 
 
+
 //! VERTEX
 
-precision highp float;
-
-// ---- Interface
+//! INCLUDE common_lib.glsl
+//! INCLUDE gpudata_lib.glsl
 
 attribute vec4 PositionP;
 attribute vec4 Position0;
@@ -27,51 +27,8 @@ uniform vec2 PixelScale;
 uniform mediump vec3 RenderParams;
 float antiAliasing = RenderParams.x;
 float rcpGammaIn = RenderParams.y;
-//-float rcpGammaOut = RenderParams.z; - used in fragment shader
+//-float rcpGammaOut = RenderParams.z;
 
-varying vec3 Surface_Opacity;
-varying vec4 Color_NegHorizSurfScale;
-
-
-// ---- Implementation
-
-vec4 pretranslate(vec4 highPrecEncodedCoord) {
-    vec4 v = highPrecEncodedCoord + Pretranslation;
-    v.xy += v.zw;
-    v.zw = vec2(0.0, 1.0);
-    return v;
-}
-
-vec3 decodeRGB(float v) {
-
-    const float downshift16 = 1. / 65536.;
-    const float downshift8  = 1. /   256.;
-
-    return vec3(fract(v * downshift16), 
-                fract(v * downshift8),
-                fract(v));
-}
-
-vec3 gammaApply(vec3 color) {
-    return pow(clamp(color, 0.0, 1.0), vec3(rcpGammaIn));
-}
-
-vec2 rotateCw(vec2 p) {
-    return vec2(p.y, -p.x);
-}
-
-vec2 rotateCcw(vec2 p) {
-    return vec2(-p.y, p.x);
-}
-
-vec3 perspDiv(vec4 p) {
-    return p.xyz / p.w;
-}
-
-vec2 safeNormalize(vec2 v) {
-    float frob = dot(v, v);
-    return v * (frob > 0.0 ? inversesqrt(frob) : 0.0);
-}
 
 //! JSREQUIRE ol.renderer.replay.webgl.geom.LineBatcher
 //! JSCONST CTRL_LINE_CENTER   ol.renderer.replay.webgl.geom.LineBatcher.SurfaceFlags.CENTER.toFixed(1)
@@ -87,12 +44,12 @@ vec2 lineExtrusion(out vec2 texCoord,
     vec2 result = vec2(0.);
     texCoord = vec2(-1., 0.);
 
-    vec2 dirIncoming = safeNormalize(coordHere - coordPrev);
-    vec2 dirOutgoing = safeNormalize(coordNext - coordHere);
-    vec2 outward = safeNormalize(dirIncoming - dirOutgoing);
+    vec2 dirIncoming = safeNormalized(coordHere - coordPrev);
+    vec2 dirOutgoing = safeNormalized(coordNext - coordHere);
+    vec2 outward = safeNormalized(dirIncoming - dirOutgoing);
 
     float sinWinding = dot(
-        rotateCcw(dirIncoming),   // normal to the left of incoming leg
+        rotatedCcw(dirIncoming),   // normal to the left of incoming leg
         outward);                 // vertex normal on the convex side
     float sgnWinding = sign(sinWinding);
 
@@ -137,7 +94,7 @@ vec2 lineExtrusion(out vec2 texCoord,
     if (absSinWinding < reciprocalRelativeMiterLimit) {
         // Bevel (miter too long)?
         legDir = ctrl == CTRL_OUTGOING_EDGE ? dirOutgoing : dirIncoming;
-        result += extent * rotateCcw(legDir);
+        result += extent * rotatedCcw(legDir);
 
         if (texCoord.x == sgnWinding && absSinWinding > epsRadians) {
             // Unless at a line ending (this includes the vertices next
@@ -150,7 +107,7 @@ vec2 lineExtrusion(out vec2 texCoord,
     // for a vicious bug in ANGLE m)
     if (absSinWinding >= reciprocalRelativeMiterLimit) {
         // Miter
-        legDir = rotateCw(outward);
+        legDir = rotatedCw(outward);
         result += (extent / sinWinding) * outward;
 
         if (absSinWinding > epsRadians) {
@@ -169,10 +126,10 @@ vec2 lineExtrusion(out vec2 texCoord,
 void main(void) {
 
     // Basic vertex shader operation
-    gl_Position = Transform * pretranslate(Position0);
+    gl_Position = Transform * rteDecode(Position0, Pretranslation);
 
     // Decode colors and opacity from style
-    Color_NegHorizSurfScale.rgb = gammaApply(decodeRGB(Style.y));
+    Color_NegHorizSurfScale.rgb = applyGamma(decodeRGB(Style.y), rcpGammaIn);
     float lineMode = max(sign(Style.z), 0.0);
     float alphaAndWidth = Style.z * sign(Style.z);
     Surface_Opacity = vec3(-lineMode, 0.0, floor(alphaAndWidth) / 255.0);
@@ -184,9 +141,9 @@ void main(void) {
 
     // Apply to 2D position in NDC
     gl_Position.xy += lineExtrusion(Surface_Opacity.xy,
-            perspDiv(Transform * pretranslate(PositionP)).xy,
-            perspDiv(gl_Position).xy,
-            perspDiv(Transform * pretranslate(PositionN)).xy,
+            projected(Transform * rteDecode(PositionP, Pretranslation)).xy,
+            projected(gl_Position).xy,
+            projected(Transform * rteDecode(PositionN, Pretranslation)).xy,
             Control, actExtent, antiAliasing,
             PixelScale, 0.5);
 }
@@ -212,10 +169,6 @@ float blendCoeff(vec2 edge0, vec2 edge1, vec2 x) {
   return max(weight.x, weight.y);
 }
 
-vec3 gammaCorrect(vec3 color) {
-  return pow(clamp(color, 0.0, 1.0), vec3(rcpGammaOut));
-}
-
 void main(void) {
 
     // Distance from center of surface coordinate (keep it this way;
@@ -229,7 +182,7 @@ void main(void) {
     float alpha = Surface_Opacity.z  * 
         (1.0 - blendCoeff(outerEdgeMin, vec2(1.0), dist));
 
-    vec3 color = gammaCorrect(Color_NegHorizSurfScale.rgb);
+    vec3 color = applyGamma(Color_NegHorizSurfScale.rgb, rcpGammaOut);
 
 #if PREMULTIPLY_BY_ALPHA
     color.rgb *= alpha;
