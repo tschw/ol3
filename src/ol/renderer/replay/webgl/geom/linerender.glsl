@@ -140,7 +140,7 @@ void main(void) {
             projected(Transform * rteDecode(PositionP, Pretranslation)).xy,
             projected(gl_Position).xy,
             projected(Transform * rteDecode(PositionN, Pretranslation)).xy,
-            Control, extent, antiAliasing, 0.5) * PixelScale;
+            Control, extent, antiAliasing, 0.5) * gl_Position.w * PixelScale;
 }
 
 
