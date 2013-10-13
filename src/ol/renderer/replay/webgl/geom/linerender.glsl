@@ -150,7 +150,6 @@ void main(void) {
 
 
 //! FRAGMENT
-//! JSCONST PREMULTIPLY_BY_ALPHA Number(gl.getContextAttributes().premultipliedAlpha)
 
 
 uniform vec3 RenderParams;
@@ -181,8 +180,5 @@ void main(void) {
 
     vec3 color = applyGamma(Color_NegHorizSurfScale.rgb, rcpGammaOut);
 
-#if PREMULTIPLY_BY_ALPHA
-    color.rgb *= alpha;
-#endif
     gl_FragColor = vec4(color, alpha);
 }
