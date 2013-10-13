@@ -69,6 +69,24 @@ ol.renderer.replay.webgl.geom.gpuData.emitVertexGroup =
 
 
 /**
+ * Emit a high precision 2D vertex coordinate.
+ *
+ * @param {Array.<number>} vertices Destination array to append to.
+ * @param {number} x X-component of the coordinate.
+ * @param {number} y Y-component of the coordinate.
+ */
+ol.renderer.replay.webgl.geom.gpuData.emitVertexCoord =
+    function(vertices, x, y) {
+
+  var xc = ol.renderer.replay.webgl.highPrecision.coarseFloat(x),
+      yc = ol.renderer.replay.webgl.highPrecision.coarseFloat(y);
+  x -= xc;
+  y -= yc;
+  vertices.push(xc, yc, x, y);
+};
+
+
+/**
  * Emit three vertices with redundant coordinates distinguished by
  * their control flags.
  *

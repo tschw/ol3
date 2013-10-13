@@ -188,17 +188,13 @@ ol.renderer.webgl.VectorLayer2.prototype.renderFrame =
     //
     // // Free resources of old version
     // if (! goog.isNull(this.batch_)) {
-    //   this.batch_.dispose(gl);
+    //   batchRenderer.unload(this.batch_);
     // }
 
-    this.renderPolygons();
-
     var lineStrings = vectorSource.getLineStrings();
-    if (lineStrings.length > 0) {
-      this.renderLineStrings(lineStrings);
-    }
+    this.batchLineStrings_(lineStrings);
+    this.batchPolygons_();
 
-    // Upload batch
     batch = this.batchBuilder_.releaseBatch();
     this.batch_ = batch;
   }
@@ -220,7 +216,6 @@ ol.renderer.webgl.VectorLayer2.prototype.renderFrame =
       -0.5,
       -0.5,
       0);
-
 };
 
 
@@ -256,38 +251,40 @@ ol.renderer.webgl.VectorLayer2.prototype.prepareRenderer_ =
 
 
 /**
+ * @private
  */
-ol.renderer.webgl.VectorLayer2.prototype.renderPolygons =
+ol.renderer.webgl.VectorLayer2.prototype.batchPolygons_ =
     function() {
-  /*
-  var batchBuilder = this.batchBuilder_;
-
-  // Not part of the style - a global renderer parameter, this
-  // dependency will be removed when splitting lines from polygons.
-  var antiAliasing = 1.75; // TODO  remove me
 
   // Set style
   // TODO Get style data and replace this hard-wired hack
-  var color = new ol.Color(0, 0, 255, 1);
-  var strokeWidth = 2.0; // pixels
+  var fillColor = new ol.Color(0, 0, 255, 0.5);
+  var strokeWidth = 4.0; // pixels
   var strokeColor = new ol.Color(255, 255, 0, 1);
-  batchBuilder.setPolygonStyle(
-      color, antiAliasing, strokeWidth, strokeColor);
 
-  // TODO Get polygon geometry data and replace this hard-wired hack
-  batchBuilder.polygon([
-    ol.renderer.webgl.testData.france(3000, 355242, 5891862)]);
-  batchBuilder.polygon([
-    ol.renderer.webgl.testData.TRIANGLE,
-    ol.renderer.webgl.testData.SQUARE]);
-  */
+  var coords = [];
+  var offsets = [];
+  Array.prototype.push.apply(coords,
+      ol.renderer.webgl.testData.france(2850, 355242, 5921862));
+  offsets.push(coords.length);
+  Array.prototype.push.apply(coords,
+      ol.renderer.webgl.testData.TRIANGLE);
+  offsets.push(-coords.length);
+  Array.prototype.push.apply(coords,
+      ol.renderer.webgl.testData.SQUARE);
+  offsets.push(coords.length);
+
+  this.batchBuilder_.addGeometries(
+      new ol.renderer.replay.input.Polygons(
+          coords, offsets, fillColor, strokeWidth, strokeColor));
 };
 
 
 /**
  * @param {Array.<ol.StyledLineStringCollection>} lineStrings Line strings.
+ * @private
  */
-ol.renderer.webgl.VectorLayer2.prototype.renderLineStrings =
+ol.renderer.webgl.VectorLayer2.prototype.batchLineStrings_ =
     function(lineStrings) {
 
   var batchBuilder = this.batchBuilder_;
@@ -295,7 +292,7 @@ ol.renderer.webgl.VectorLayer2.prototype.renderLineStrings =
   // Set style
   // TODO Get style data and replace this hard-wired hack
   var width = 15.0; // pixels
-  var color = new ol.Color(255, 0, 0, 1);
+  var color = new ol.Color(255, 0, 0, 0.5);
 
   // Draw geometry to batch
   var i, collection, buffer;
