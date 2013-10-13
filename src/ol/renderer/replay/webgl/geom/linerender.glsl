@@ -148,12 +148,10 @@ void main(void) {
             PixelScale, 0.5);
 }
 
+
 //! FRAGMENT
 //! JSCONST PREMULTIPLY_BY_ALPHA Number(gl.getContextAttributes().premultipliedAlpha)
 
-precision mediump float;
-
-// ---- Interface
 
 uniform vec3 RenderParams;
 float antiAliasing = RenderParams.x;
@@ -162,7 +160,6 @@ float rcpGammaOut = RenderParams.z;
 varying vec3 Surface_Opacity;
 varying vec4 Color_NegHorizSurfScale;
 
-// ---- Implementation
 
 float blendCoeff(vec2 edge0, vec2 edge1, vec2 x) {
   vec2 weight = smoothstep(edge0, edge1, x);

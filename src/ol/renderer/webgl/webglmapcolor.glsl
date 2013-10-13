@@ -1,14 +1,13 @@
 //! NAMESPACE=ol.renderer.webgl.map.shader.Color
 //! CLASS=ol.renderer.webgl.map.shader.Color
 
-
 //! COMMON
-
-precision mediump float;
 
 varying vec2 v_texCoord;
 
+
 //! VERTEX
+
 attribute vec2 a_position;
 attribute vec2 a_texCoord;
 
@@ -22,7 +21,9 @@ void main(void) {
 
 
 //! FRAGMENT
+
 // @see https://svn.webkit.org/repository/webkit/trunk/Source/WebCore/platform/graphics/filters/skia/SkiaImageFilterBuilder.cpp
+
 uniform mat4 u_colorMatrix;
 uniform float u_opacity;
 uniform sampler2D u_texture;

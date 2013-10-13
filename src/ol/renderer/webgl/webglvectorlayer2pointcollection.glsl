@@ -2,10 +2,12 @@
 //! CLASS=ol.renderer.webgl.vectorlayer2.shader.PointCollection
 
 //! COMMON
-precision mediump float;
+
 
 //! VERTEX
+
 attribute vec2 a_position;
+
 uniform float u_pointSize;
 uniform mat4 u_modelViewMatrix;
 
@@ -16,6 +18,7 @@ void main(void) {
 
 
 //! FRAGMENT
+
 uniform vec4 u_color;
 
 void main(void) {

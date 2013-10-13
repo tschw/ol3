@@ -1,14 +1,13 @@
 //! NAMESPACE=ol.renderer.webgl.map.shader.Default
 //! CLASS=ol.renderer.webgl.map.shader.Default
 
-
 //! COMMON
-precision mediump float;
 
 varying vec2 v_texCoord;
 
 
 //! VERTEX
+
 attribute vec2 a_position;
 attribute vec2 a_texCoord;
 
@@ -22,6 +21,7 @@ void main(void) {
 
 
 //! FRAGMENT
+
 uniform float u_opacity;
 uniform sampler2D u_texture;
 

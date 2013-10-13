@@ -1,14 +1,13 @@
 //! NAMESPACE=ol.renderer.webgl.tilelayer.shader
 //! CLASS=ol.renderer.webgl.tilelayer.shader.
 
-
 //! COMMON
-precision mediump float;
 
 varying vec2 v_texCoord;
 
 
 //! VERTEX
+
 attribute vec2 a_position;
 attribute vec2 a_texCoord;
 uniform vec4 u_tileOffset;
@@ -20,6 +19,7 @@ void main(void) {
 
 
 //! FRAGMENT
+
 uniform sampler2D u_texture;
 
 void main(void) {
