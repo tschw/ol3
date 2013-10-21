@@ -1,0 +1,378 @@
+<html>
+  <head>
+    <title>Polygon Simplification</title>
+
+    <script src="jquery-2.0.3.min.js"></script> 
+    <script src="jqueryui-1.10.3.min.js"></script> 
+    <link rel="stylesheet" href="jqui-theme/jquery-ui.css" />
+
+    <script src="closure_base.js"></script>
+    <script src="closure_mock.js"></script>
+
+    <script src="testdata.js"></script>
+
+    <script language="JavaScript">
+
+
+      fetch = function(vec, coords, offset) {
+        vec[0] = coords[offset];
+        vec[1] = coords[offset + 1];
+      }
+
+      fetch2 = function(vec0, vec1, coords, offset) {
+        vec0[0] = coords[offset];
+        vec0[1] = coords[offset + 1];
+        vec1[0] = coords[offset + 2];
+        vec1[1] = coords[offset + 3];
+      };
+
+      rotate90 = function(vec) {
+        var x = vec[0], y = vec[1];
+        vec[0] = -y;
+        vec[1] = x;
+      };
+
+      vecRegs = [[0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0]];
+
+      distance = function(a, b, c) {
+        var ab = vecRegs[6], bc = vecRegs[5], n = vecRegs[4];
+        goog.vec.Vec2.subtract(b, a, ab);
+        goog.vec.Vec2.subtract(c, b, bc);
+        goog.vec.Vec2.subtract(c, a, n);
+        rotate90(n);
+        var lenOver = goog.vec.Vec2.magnitude(n);
+        goog.vec.Vec2.scale(n, 1 / lenOver, n);
+        return Math.max(
+            Math.max(
+                Math.abs(goog.vec.Vec2.dot(ab, n)),
+                Math.abs(goog.vec.Vec2.dot(bc, n))),
+            Math.max( // actually using an approximation, here
+                goog.vec.Vec2.magnitude(ab),
+                goog.vec.Vec2.magnitude(bc)) - lenOver);
+      };
+
+      stack = [];
+
+      simplifyRdp = function(coordsOut, offsetsOut, coords, offsets, eps) {
+
+          var end, offset = 0;
+          var j, d, dMax, offsFarthest, absEnd;
+          var offs0, offsN, ok,
+              p0 = vecRegs[0], p = vecRegs[1], pN = vecRegs[2];
+          for (var i = 0, n = offsets.length; i < n; ++i) {
+            end = offsets[i];
+            absEnd = Math.abs(end);
+
+            // Before starting the recursion, find the point farthest from
+            // the first, as we are dealing with a ring and pN is likely to
+            // be a candidate for removal
+            fetch(p0, coords, offset);
+            dMax = 0, offsFarthest = 0;
+            for (j = offset + 2; j < absEnd; j += 2) {
+              fetch(pN, coords, j);
+              d = goog.vec.Vec2.distanceSquared(p0, pN);
+              if (d > dMax) {
+                dMax = d;
+                offsFarthest = j;
+              }
+            }
+            fetch(p, coords, offsFarthest);
+            if (distance(p0, p, pN) >= eps) {
+              // Recursively run RDP algorithm (using a software stack)
+              // FIXME proper handling of ring structures; do not forget
+              // last point and wrap around
+              offs0 = offset;
+              offsN = offsFarthest;
+              stack.push(offsFarthest, absEnd - 2);
+              coordsOut.push(p0[0], p0[1]);
+              for (;;) {
+                ok = false;
+                if (offs0 < offsN - 2) {
+                  fetch(pN, coords, offsN);
+                  dMax = 0, offsFarthest = 0;
+                  for (j = offs0 + 2; j < offsN; j += 2) {
+                      fetch(p, coords, j);
+                      d = distance(p0, p, pN);
+                    if (d > dMax) {
+                      dMax = d;
+                      offsFarthest = j;
+                    }
+                  }
+                  if (offsFarthest > 0) {
+                    ok = dMax >= eps;
+                  }
+                }
+                if (ok) {
+                  stack.push(offsFarthest, offsN);
+                  offsN = offsFarthest;
+                } else if (stack.length > 0) {
+                  offsN = stack.pop();
+                  offs0 = stack.pop();
+                  fetch(p0, coords, offs0);
+                  coordsOut.push(p0[0], p0[1]);
+                } else {
+                  break;
+                }
+              }
+              offsetsOut.push(coordsOut.length * (end < 0 ? -1 : 1));
+            } else {
+              // Contour is completely invisible - adjust sign of offset
+              // for next contour
+              offsetsOut[offsetsOut.length - 1] =
+                  coordsOut.length * (end < 0 ? -1 : 1);
+            }
+            offset = absEnd;
+          }
+
+      };
+
+      simplify = function(coordsOut, offsetsOut, coords, offsets, eps, opt_lerp) {
+
+          var local = vecRegs, a, b, c, d, k, keepB, keepC,
+              j, e, end, absEnd, offset = 0;
+
+          for (var i = 0, n = offsets.length; i < n; ++i) {
+            end = offsets[i];
+
+            fetch2(local[0], local[1], coords, offset);
+
+            a = 0, b = 1, c = 2, d = 3;
+            absEnd = Math.abs(end);
+
+            // FIXME terminate the loop properly, that is do not eventually
+            // just forget the last point - also wrap around a bit
+            // FIXME detect complete degeneration of contours and omit it
+            for (j = offset + 4, e = absEnd - 4; j <= e; j += 4) {
+
+              fetch2(local[c], local[d], coords, j);
+
+              keepB = distance(local[a], local[b], local[c]) >= eps;
+              keepC = distance(local[b], local[c], local[d]) >= eps;
+
+              if (keepC) {
+                coordsOut.push(local[a][0], local[a][1]);
+                if (keepB) {
+                  coordsOut.push(local[b][0], local[b][1]);
+                }
+                // <A B> C D --> C D (A B)
+                k = a; a = c; c = k;
+                k = b; b = d; d = k;
+              }
+              else if (keepB) {
+                coordsOut.push(local[a][0], local[a][1]);
+                // <A> B (C) D --> B D (C A)
+                k = a; a = b; b = d; d = k;
+              } else {
+
+                keepB = distance(local[a], local[b], local[d], eps) >= eps;
+                keepC = distance(local[a], local[c], local[d], eps) >= eps;
+
+                if (keepB && (keepC ^ !opt_lerp)) {
+                  coordsOut.push(local[a][0], local[a][1]);
+                  if (keepC) {
+                    goog.vec.Vec2.lerp(local[b], local[c], 0.5, local[b]);
+                  }
+                  // <A> B (C) D --> B D (C A)
+                  k = a; a = b; b = d; d = k;
+                } else if (keepC) {
+                  coordsOut.push(local[a][0], local[a][1]);
+                  if (keepB) {
+                    coordsOut.push(local[b][0], local[b][1]);
+                  }
+                  // <A> (B) C D --> C D (A B)
+                  k = a; a = c; c = k;
+                  k = b; b = d; d = k;
+                } else {
+                  // A (B) (C) D --> A D (C B)
+                  k = b; b = d; d = k;
+                }
+              }
+            }
+            coordsOut.push(
+                local[a][0], local[a][1],
+                local[b][0], local[b][1]);
+            offsetsOut.push(coordsOut.length * (end < 0 ? -1 : 1));
+            offset = absEnd;
+          }
+      };
+
+
+/// Testbed
+
+      feedContour = function(ctx, coords, offset, end, stride) {
+
+        var i = offset;
+        ctx.moveTo(coords[i], coords[i + 1]);
+        for (i += stride; i != end; i += stride) {
+          ctx.lineTo(coords[i], coords[i + 1]);
+        }
+        i = offset;
+        ctx.lineTo(coords[i], coords[i + 1]);
+      };
+
+      paramsChanged = true;
+
+      setupUserInterface = function() {
+        $('#threshold').slider({min: 0, max: 4, value: 0.64, step: 0.0001});
+
+        // Attach value display, event handler, and fire it
+        ($(':ui-slider', '#user-interface')
+            .after('<div class="value-display"/>')
+            .on('slidechange slide', function(e, ui) {
+                $(e.target).next().text(
+                    $(e.target).slider('value').toPrecision(3)); 
+                paramsChanged = true;
+            })
+            .trigger('slidechange'));
+        ($('select', '#user-interface')
+            .on('change', function() { paramsChanged = true; } ));
+      };
+
+      timerHandle = null;
+
+      timer = function() {
+        window.clearTimeout(timerHandle);
+
+        if (paramsChanged) {
+          paramsChanged = false;
+          draw();
+        }
+
+        timerHandle = window.setTimeout(timer, 100);
+      }
+
+      window.onload = function() {
+        setupUserInterface();
+        timerHandle = window.setTimeout(timer, 100);
+      };
+
+      getModel = function(i) {
+        switch (i) {
+        case 0: return TestData.CHAR_8;
+        case 1: return TestData.CHAR_A;
+        case 2: return TestData.CHAR_X;
+        case 3: return TestData.CHAR_O;
+        case 4:
+          var contour = TestData.franceContour(1/4, 1/4, 0, 30);
+          return { offsets: [contour.length], coords: contour };
+        };
+      };
+
+
+      draw = function() {
+
+        var eps = $('#threshold').slider('value');
+        var model = getModel(Number($('#model').val()));
+        var algoIndex = Number($('#algorithm').val());
+
+        var coords = [], offsets = [], time;
+        switch (algoIndex) {
+        case 0:
+          time = (window.performance || Date).now();
+          simplifyRdp(coords, offsets, model.coords, model.offsets, eps);
+          time = (window.performance || Date).now() - time;
+          break;
+        case 1:
+          time = (window.performance || Date).now();
+          simplify(coords, offsets, model.coords, model.offsets, Math.sqrt(eps));
+          time = (window.performance || Date).now() - time;
+          break;
+        case 2:
+          time = (window.performance || Date).now();
+          simplify(coords, offsets, model.coords, model.offsets, Math.sqrt(eps), true);
+          time = (window.performance || Date).now() - time;
+          break;
+        }
+
+        $('#stats').html(
+          'Simplification took ' + time.toFixed(2) + 'ms<br/>' +
+          'Number of contours: ' + offsets.length + '<br/>' +
+          'Number of coordinates: ' + coords.length / 2 + '<br/>');
+
+
+
+        var elem = document.getElementById('canvas');
+        if (elem.getContext) {
+
+          var ctx = elem.getContext('2d');
+          ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+          ctx.fillStyle = '#0000ff';
+          ctx.strokeStyle = '#ffff00';
+          ctx.lineWidth = 1;
+
+          ctx.setTransform(3,0,0,3,80,-80);
+
+          var end, offset = 0;
+          for (var i = 0, n = offsets.length; i < n; ++i) {
+            end = offsets[i];
+            if (offset <= 0) {
+              ctx.beginPath();
+              offset = -offset;
+            }
+
+            feedContour(ctx, coords, Math.abs(end) - 2, offset - 2, -2);
+
+            offset = -end;
+            if (offset <= 0) {
+              ctx.fill();
+              ctx.stroke();
+            }
+          }
+
+        }
+
+      };
+
+    </script>
+    <style>
+      #canvas { float: left; 
+background-color: #aaa;
+background-image: linear-gradient(45deg, #555 25%, transparent 25%, transparent), linear-gradient(-45deg, #555 25%, transparent 25%, transparent), linear-gradient(45deg, transparent 75%, #555 75%), linear-gradient(-45deg, transparent 75%, #555 75%);
+background-size: 80px;
+      }
+      #user-interface { float: left; width: 320px; }
+      .slider, .label, select { margin: 10px 10px 10px 20px; }
+      .label { float: none; clear: left; } 
+      .slider { float: left; width: 200px; }
+      select { width: 300px; }
+      .value-display { margin: 10px 10px 0px 0px; 
+                       display: inline-block; float: right; }
+    </style>
+
+
+  </head>
+  <body>
+
+    <div id="app-panel">
+
+      <canvas id="canvas" width="600" height="400">
+        Browser does not support Canvas.
+      </canvas>
+
+      <div id="user-interface">
+        <select id="model">
+          <option value="0">Vectorized 8</option>
+          <option value="1">Vectorized A</option>
+          <option value="2">Vectorized X</option>
+          <option value="3">Vectorized O</option>
+          <option value="4">France</option>
+        </select>
+        <select id="algorithm">
+          <option value="0">Ramer-Douglas-Peucker, O(N log N, worst NN)</option>
+          <option value="1">Mine, coordinate preserving, O(N)</option>
+          <option value="2">Mine, lerping, O(N)</option>
+        </select>
+        <div class="label">Threshold (units)</div>
+        <div class="slider" id="threshold"></div>
+        <div class="label" id="stats"></div>
+        <div class="label" style="color: red;">
+          Rings are not yet closed correctly for both algorithms causing
+          visual quirks.
+        </div>
+      </div>
+    </div>
+
+    </div>    
+
+  </body>
+</html>
