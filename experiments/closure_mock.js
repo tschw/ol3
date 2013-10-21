@@ -6,6 +6,7 @@ goog.provide('goog.object');
 goog.provide('goog.webgl');
 goog.provide('goog.vec.Mat4');
 goog.provide('goog.vec.Vec3');
+goog.provide('goog.vec.Vec2');
 
 goog.asserts.assert = function(cond, msg) {
     if (! cond) throw msg;
@@ -225,3 +226,168 @@ goog.vec.Vec3.negate = function(vec0, resultVec) {
   return resultVec;
 };
 
+
+
+/**
+ * Performs a component-wise addition of vec0 and vec1 together storing the
+ * result into resultVec.
+ *
+ * @param {goog.vec.Vec2.AnyType} vec0 The first addend.
+ * @param {goog.vec.Vec2.AnyType} vec1 The second addend.
+ * @param {goog.vec.Vec2.AnyType} resultVec The vector to
+ *     receive the result. May be vec0 or vec1.
+ * @return {!goog.vec.Vec2.AnyType} Return resultVec so that operations can be
+ *     chained together.
+ */
+goog.vec.Vec2.add = function(vec0, vec1, resultVec) {
+  resultVec[0] = vec0[0] + vec1[0];
+  resultVec[1] = vec0[1] + vec1[1];
+  return resultVec;
+};
+
+
+/**
+ * Performs a component-wise subtraction of vec1 from vec0 storing the
+ * result into resultVec.
+ *
+ * @param {goog.vec.Vec2.AnyType} vec0 The minuend.
+ * @param {goog.vec.Vec2.AnyType} vec1 The subtrahend.
+ * @param {goog.vec.Vec2.AnyType} resultVec The vector to
+ *     receive the result. May be vec0 or vec1.
+ * @return {!goog.vec.Vec2.AnyType} Return resultVec so that operations can be
+ *     chained together.
+ */
+goog.vec.Vec2.subtract = function(vec0, vec1, resultVec) {
+  resultVec[0] = vec0[0] - vec1[0];
+  resultVec[1] = vec0[1] - vec1[1];
+  return resultVec;
+};
+
+/**
+ * Negates vec0, storing the result into resultVec.
+/**
+ * Negates vec0, storing the result into resultVec.
+ *
+ * @param {goog.vec.Vec2.AnyType} vec0 The vector to negate.
+ * @param {goog.vec.Vec2.AnyType} resultVec The vector to
+ *     receive the result. May be vec0.
+ * @return {!goog.vec.Vec2.AnyType} Return resultVec so that operations can be
+ *     chained together.
+ */
+goog.vec.Vec2.negate = function(vec0, resultVec) {
+  resultVec[0] = -vec0[0];
+  resultVec[1] = -vec0[1];
+  return resultVec;
+};
+
+/**
+ * Multiplies each component of vec0 with scalar storing the product into
+ * resultVec.
+ *
+ * @param {goog.vec.Vec2.AnyType} vec0 The source vector.
+ * @param {number} scalar The value to multiply with each component of vec0.
+ * @param {goog.vec.Vec2.AnyType} resultVec The vector to
+ *     receive the result. May be vec0.
+ * @return {!goog.vec.Vec2.AnyType} Return resultVec so that operations can be
+ *     chained together.
+ */
+goog.vec.Vec2.scale = function(vec0, scalar, resultVec) {
+  resultVec[0] = vec0[0] * scalar;
+  resultVec[1] = vec0[1] * scalar;
+  return resultVec;
+};
+
+
+/**
+ * Returns the magnitudeSquared of the given vector.
+ *
+ * @param {goog.vec.Vec2.AnyType} vec0 The vector.
+ * @return {number} The magnitude of the vector.
+ */
+goog.vec.Vec2.magnitudeSquared = function(vec0) {
+  var x = vec0[0], y = vec0[1];
+  return x * x + y * y;
+};
+
+
+/**
+ * Returns the squared distance between two points.
+ *
+ * @param {goog.vec.Vec2.AnyType} vec0 First point.
+ * @param {goog.vec.Vec2.AnyType} vec1 Second point.
+ * @return {number} The squared distance between the points.
+ */
+goog.vec.Vec2.distanceSquared = function(vec0, vec1) {
+  var x = vec0[0] - vec1[0];
+  var y = vec0[1] - vec1[1];
+  return x * x + y * y;
+};
+
+/**
+ * Returns a unit vector pointing from one point to another.
+ * If the input points are equal then the result will be all zeros.
+ *
+ * @param {goog.vec.Vec2.AnyType} vec0 Origin point.
+ * @param {goog.vec.Vec2.AnyType} vec1 Target point.
+ * @param {goog.vec.Vec2.AnyType} resultVec The vector to receive the
+ *     results (may be vec0 or vec1).
+ * @return {!goog.vec.Vec2.AnyType} Return resultVec so that operations can be
+ *     chained together.
+ */
+goog.vec.Vec2.direction = function(vec0, vec1, resultVec) {
+  var x = vec1[0] - vec0[0];
+  var y = vec1[1] - vec0[1];
+  var d = Math.sqrt(x * x + y * y);
+  if (d) {
+    d = 1 / d;
+    resultVec[0] = x * d;
+    resultVec[1] = y * d;
+  } else {
+    resultVec[0] = resultVec[1] = 0;
+  }
+  return resultVec;
+};
+
+
+/**
+ * Linearly interpolate from vec0 to vec1 according to f. The value of f should
+ * be in the range [0..1] otherwise the results are undefined.
+ *
+ * @param {goog.vec.Vec2.AnyType} vec0 The first vector.
+ * @param {goog.vec.Vec2.AnyType} vec1 The second vector.
+ * @param {number} f The interpolation factor.
+ * @param {goog.vec.Vec2.AnyType} resultVec The vector to receive the
+ *     results (may be vec0 or vec1).
+ * @return {!goog.vec.Vec2.AnyType} Return resultVec so that operations can be
+ *     chained together.
+ */
+goog.vec.Vec2.lerp = function(vec0, vec1, f, resultVec) {
+  var x = vec0[0], y = vec0[1];
+  resultVec[0] = (vec1[0] - x) * f + x;
+  resultVec[1] = (vec1[1] - y) * f + y;
+  return resultVec;
+};
+
+
+/**
+ * Returns the scalar product of vectors vec0 and vec1.
+ *
+ * @param {goog.vec.Vec2.AnyType} vec0 The first vector.
+ * @param {goog.vec.Vec2.AnyType} vec1 The second vector.
+ * @return {number} The scalar product.
+ */
+goog.vec.Vec2.dot = function(vec0, vec1) {
+  return vec0[0] * vec1[0] + vec0[1] * vec1[1];
+};
+
+
+/**
+ * Returns the magnitude of the given vector.
+ *
+ * @param {goog.vec.Vec2.AnyType} vec0 The vector.
+ * @return {number} The magnitude of the vector.
+ */
+goog.vec.Vec2.magnitude = function(vec0) {
+  var x = vec0[0], y = vec0[1];
+  return Math.sqrt(x * x + y * y);
+};
