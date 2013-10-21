@@ -82,10 +82,10 @@ ol.renderer.webgl.batching.Parameters;
 /**
  * Semantic indices of the elements in the paramter vector.
  *
- * @typedef {Array}
+ * @enum {number}
  * @see {ol.renderer.webgl.batching.Parameters}
  */
-ol.renderer.webgl.batching.Parameters = {
+ol.renderer.webgl.batching.Parameter = {
 
   /**
    * Maximum angle of lines that are considered straight and connected
