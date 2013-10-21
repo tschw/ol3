@@ -274,12 +274,12 @@
           break;
         case 1:
           time = (window.performance || Date).now();
-          simplify(coords, offsets, model.coords, model.offsets, Math.sqrt(eps));
+          simplify(coords, offsets, model.coords, model.offsets, eps);
           time = (window.performance || Date).now() - time;
           break;
         case 2:
           time = (window.performance || Date).now();
-          simplify(coords, offsets, model.coords, model.offsets, Math.sqrt(eps), true);
+          simplify(coords, offsets, model.coords, model.offsets, eps, true);
           time = (window.performance || Date).now() - time;
           break;
         }
