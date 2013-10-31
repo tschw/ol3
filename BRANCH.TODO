@@ -1,0 +1,129 @@
+
+
+About:
+
+  Development branch for replay-renderer, primarily targeting WebGL exploiting
+  bulk data upload to the GPU.
+
+
+Thoughts on pending tasks and issues:
+
+
+1. Composition
+
+1.1.  Render classes for lines & polygons need to perform blending against
+      an input texture for translucent surfaces due to inherent overpainting.
+
+1.2.  Point render classes will not want to use it (instead keep all texture
+      units for input from the image atlas) and directly blend onto the
+      destination framebuffer provided.
+
+1.3.  Framebuffer textures should use linearized color space for correct
+      blending of smooth edges. It is the responsibility of each renderer
+      to generate linearized output (this means pow(rgb, 2.3) to de-gamma).
+      Color transformation matrices should be applied after de-gamma (yields
+      higher quality) by the renders / external renderers involved.
+      The composition stage should use floatingpoint textures where available
+      (the extension is very widely supported on all non-mobile platforms).
+
+1.4.  Ideally the existing code for tile rendering will use this facility,
+      as it would save a lot of memory (2 vs. N framebuffer textures, where
+      N is the number of layers).
+
+
+2. Image Management
+
+2.1.  We mostly expect icons and labels. Therefore we may limit the vertical
+      extent making line-based allocation attractive: Just as a thought
+      experiment let's assume all images have similar height. In this case
+      we can have an accounting data structure of images sorted by width.
+      When a new image needs to be allocated, we can iterate all lines and
+      see whether we can establish an optimal (or near optimal) fit by
+      swapping one image of the line being looked at with another one of
+      appropriate size (or leave appropriate space for an images of average
+      width according to the memory pressure).
+      To establish such a situation in practice, line allocation may proceed
+      in a recursive fashion: The requested height gets rounded to the next
+      power of ten, for example 8 pixels. If there are no lines for 8 pixels
+      we allocate two lines within a line for 16 pixels, if there are none
+      for 16 pixels a line of height 32 pixels is split, and so on. Let's
+      assume we find a line of 32 pixels in height. We have now allocated
+      two lines for images of height 8 and one line for images of height 16.
+
+
+3. Precision Issues & Level of Detail
+
+3.1.  Very long line segments can erreneously get clipped at deep zoom.
+      This issue can trivially be solved by linear subdivision of the input
+      coodinates (guess: 8th a globe, or so).
+
+3.2.  Clipping errors may occur on large polygons with high resolution outline
+      such as continents or large countries. This issue can be solved using
+      subdividing triangulation instead of bare tesselation.
+
+3.3.  Polygon simplification may be employed to achieve varying levels of
+      detail to improve rendering speed and quality. It may also reduce
+      clipping errors (see 3.2) or even elmininate them (though compromising
+      efficiency - that is having to re-simplify and re-batch when zooming). 
+      Its integration, however, requires a sophisticated rendering management
+      stage that does not yet exist.
+3.3.1.
+      According to some experiments we made, polygon simplification based on
+      the Ramer-Douglas-Peucker algorithm is very slow. The implementation is
+      not much optimized, but even if it was - it is foreseeable that it will
+      be too slow to allow interactive response on real-world data.
+3.3.2.
+      I wrote a simple linear greedy simplification algorithm based on dynamic
+      programming that runs very fast (linear complexity, low constant, even
+      when implemented sloppily). Its latest version uses an error heuristic
+      to not oversimplify.
+      Quality is worse than of RDP, in particular it a) is not as aggressively
+      simplifying as RDP and b) is less stable in the choice of kept points
+      across different levels of detail, which might be undersirable. It might
+      be possible to overcome these problems by reworking the error heuristic
+      adding a curvature penalty.
+3.3.3.
+      There is QHULL (an improvement of RDP) that should run much faster than
+      RDP (though still superlinear) even at improved quality. 
+      It's more tricky to implement but the paper contains an implementation
+      in C.
+
+
+4. Limits
+
+4.1.  Vertex indices are limited to 16 bit unsigned integers. Therefore the
+      webgl.BatchBuilder allows to enforce reconfiguration so index counting
+      can be reset back to zero (during rendering, vertex attribute pointers
+      are then offset).
+      Lines have an expansion rate of 5. That is, one segment coordinate
+      expands to 5 (individually addressable) vertices. Splitting is not yet
+      implemented, yet. Also the last coordinate of linear rings will have to
+      be re-emitted when split across index ranges.
+4.1.1.
+      In case of polygons we'd currently have to remap the output from the
+      (suboptimal) tesselator to allow reasonable splitting.
+      This issue is most efficiently addressed within a custom triangulator
+      (see 3.2), where temporary data structures exist to establish an order
+      that will avoid data duplication upon split. Also subdivision will add
+      vertices and thus will make index space exhaustion less unlikely.
+
+4.2.  Texture coordinates are in range 0..4093 for both components. Given that
+      a reasonably portable maximum is 2048x2048, the range allows addressing
+      a 2x2 grid of textures using four texture units.
+      Quantizing one dimension to 2-pixels (in practice we will probably use
+      more to simplify accounting) we can go up to eight units, which is again
+      a reasonably portable maximum, if not too demanding in terms of total
+      memory consumption for mobile platforms.
+      Eight 2048x2048 textures can hold 512 256x256 images or 2^15 32x32 ones,
+      or 4096 256x16 images (an exemplary image size for labels) using up
+      64 megabytes of graphics memory with 16-bit pixels without compression.
+
+
+5. Tilted Map
+
+5.1.  Projection must occur after extrusion for line strings and points if
+      perspective distortion is desired.
+
+5.2.  Eventually it makes sense to have this behavior switchable for points:
+      A street label may be projected where a balloon (as google maps uses)
+      would better remain billboarded to the screen.
