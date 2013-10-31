@@ -1,4 +1,4 @@
-goog.provide('ol.renderer.replay.webgl.geom.LineBatcher');
+goog.provide('ol.renderer.replay.webgl.geom.LineStringsBatcher');
 
 goog.require('ol.renderer.replay.input');
 goog.require('ol.renderer.replay.webgl.Batcher');
@@ -10,7 +10,7 @@ goog.require('ol.renderer.replay.webgl.geom.gpuData');
  * @constructor
  * @extends {ol.renderer.replay.webgl.Batcher}
  */
-ol.renderer.replay.webgl.geom.LineBatcher = function() {
+ol.renderer.replay.webgl.geom.LineStringsBatcher = function() {
   goog.base(this);
 
   /**
@@ -20,20 +20,20 @@ ol.renderer.replay.webgl.geom.LineBatcher = function() {
   this.style_ = [];
 };
 goog.inherits(
-    ol.renderer.replay.webgl.geom.LineBatcher,
+    ol.renderer.replay.webgl.geom.LineStringsBatcher,
     ol.renderer.replay.webgl.Batcher);
 
 
 /**
  * @override
  */
-ol.renderer.replay.webgl.geom.LineBatcher.prototype.encodeGeometries =
+ol.renderer.replay.webgl.geom.LineStringsBatcher.prototype.encodeGeometries =
     function(geometries) {
 
   var lineStrings = /** @type {ol.renderer.replay.input.LineStrings} */
       (geometries);
 
-  ol.renderer.replay.webgl.geom.LineBatcher.encodeStyle_(
+  ol.renderer.replay.webgl.geom.LineStringsBatcher.encodeStyle_(
       this.style_, lineStrings.color, lineStrings.width);
   this.context.requestStyle(this.style_);
 
@@ -46,9 +46,9 @@ ol.renderer.replay.webgl.geom.LineBatcher.prototype.encodeGeometries =
       i = this.context.nextVertexIndex,
 
       terminal =
-      ol.renderer.replay.webgl.geom.LineBatcher.FLAGS_TERMINAL_,
+      ol.renderer.replay.webgl.geom.LineStringsBatcher.FLAGS_TERMINAL_,
       segment =
-      ol.renderer.replay.webgl.geom.LineBatcher.FLAGS_SEGMENT_;
+      ol.renderer.replay.webgl.geom.LineStringsBatcher.FLAGS_SEGMENT_;
 
   for (j = 0, n = offsets.length; j < n; ++j, offset = end) {
 
@@ -60,7 +60,7 @@ ol.renderer.replay.webgl.geom.LineBatcher.prototype.encodeGeometries =
     if (coords[offset] == coords[last] &&
         coords[offset + 1] == coords[last + 1]) {
 
-      i = ol.renderer.replay.webgl.geom.LineBatcher.
+      i = ol.renderer.replay.webgl.geom.LineStringsBatcher.
           linearRingImpl_(vertices, indices, coords, offset, last, i);
       continue;
     }
@@ -89,7 +89,7 @@ ol.renderer.replay.webgl.geom.LineBatcher.prototype.encodeGeometries =
     ol.renderer.replay.webgl.geom.gpuData.emitQuadIndices(
         indices, i + 8, i + 9, i + 10, i + 11);
     //  B==C==...==X==Y==
-    i = ol.renderer.replay.webgl.geom.LineBatcher.
+    i = ol.renderer.replay.webgl.geom.LineStringsBatcher.
         emitLineSegmentsIndices_(indices, i + 10, nCoords - 2, 5);
     //  [Z]=|Z|
     ol.renderer.replay.webgl.geom.gpuData.emitQuadIndices(
@@ -111,14 +111,15 @@ ol.renderer.replay.webgl.geom.LineBatcher.prototype.encodeGeometries =
  * @param {Array.<number>=} opt_tmpArray Array to be used
  *    to encode the style to avoid allocation.
  */
-ol.renderer.replay.webgl.geom.LineBatcher.prepareSetStyle =
+ol.renderer.replay.webgl.geom.LineStringsBatcher.prepareSetStyle =
     function(context, color, width, opt_tmpArray) {
 
   context.selectType(/** @type {?} */(
       ol.renderer.replay.input.LineStrings.prototype.typeId));
 
   var style = opt_tmpArray || [];
-  ol.renderer.replay.webgl.geom.LineBatcher.encodeStyle_(style, color, width);
+  ol.renderer.replay.webgl.geom.
+      LineStringsBatcher.encodeStyle_(style, color, width);
   context.requestStyle(style);
 };
 
@@ -132,12 +133,13 @@ ol.renderer.replay.webgl.geom.LineBatcher.prepareSetStyle =
  * @param {number} offset
  * @param {number} end
  */
-ol.renderer.replay.webgl.geom.LineBatcher.linearRing =
+ol.renderer.replay.webgl.geom.LineStringsBatcher.linearRing =
     function(context, coords, offset, end) {
 
-  context.nextVertexIndex = ol.renderer.replay.webgl.geom.LineBatcher.
-      linearRingImpl_(context.vertices, context.indices,
-          coords, offset, end, context.nextVertexIndex);
+  context.nextVertexIndex =
+      ol.renderer.replay.webgl.geom.LineStringsBatcher.linearRingImpl_(
+          context.vertices, context.indices, coords, offset, end,
+          context.nextVertexIndex);
 };
 
 
@@ -147,7 +149,7 @@ ol.renderer.replay.webgl.geom.LineBatcher.linearRing =
  * @param {number} width
  * @private
  */
-ol.renderer.replay.webgl.geom.LineBatcher.encodeStyle_ =
+ol.renderer.replay.webgl.geom.LineStringsBatcher.encodeStyle_ =
     function(styleData, color, width) {
 
   // TODO tighten encoding / add miter limit
@@ -172,11 +174,11 @@ ol.renderer.replay.webgl.geom.LineBatcher.encodeStyle_ =
  * @return {number} Index of next vertex.
  * @private
  */
-ol.renderer.replay.webgl.geom.LineBatcher.linearRingImpl_ =
+ol.renderer.replay.webgl.geom.LineStringsBatcher.linearRingImpl_ =
     function(vertices, indices, coords, offset, end, iBase) {
 
   var segment =
-      ol.renderer.replay.webgl.geom.LineBatcher.FLAGS_SEGMENT_;
+      ol.renderer.replay.webgl.geom.LineStringsBatcher.FLAGS_SEGMENT_;
   var iStride = segment.length;
 
   // Vertex data (last, all, first)
@@ -189,7 +191,7 @@ ol.renderer.replay.webgl.geom.LineBatcher.linearRingImpl_ =
 
   // Index data
   var nCoords = (end - offset) / 2;
-  ol.renderer.replay.webgl.geom.LineBatcher.
+  ol.renderer.replay.webgl.geom.LineStringsBatcher.
       emitLineSegmentsIndices_(indices, iBase, nCoords, iStride, iBase);
 
   // Advance by nCoords coordinates plus two sentinels
@@ -201,7 +203,7 @@ ol.renderer.replay.webgl.geom.LineBatcher.linearRingImpl_ =
  * Edge control flags as processed by the vertex shader.
  * @enum {number}
  */
-ol.renderer.replay.webgl.geom.LineBatcher.SurfaceFlags = {
+ol.renderer.replay.webgl.geom.LineStringsBatcher.SurfaceFlags = {
 
   // TODO tidy encoding
 
@@ -211,11 +213,6 @@ ol.renderer.replay.webgl.geom.LineBatcher.SurfaceFlags = {
   IN_RIGHT: 4,
   OUT_LEFT: 2,
   OUT_RIGHT: 6,
-
-  TERMINAL_IN_LEFT: 8,
-  TERMINAL_IN_RIGHT: 12,
-  TERMINAL_OUT_LEFT: 10,
-  TERMINAL_OUT_RIGHT: 14,
 
   OUTGOING: 2,
   RIGHT: 4,
@@ -229,21 +226,16 @@ ol.renderer.replay.webgl.geom.LineBatcher.SurfaceFlags = {
  * Surface flags for a regular line segment.
  *
  * @type {Array.<
- *      ol.renderer.replay.webgl.geom.LineBatcher.SurfaceFlags>}
+ *      ol.renderer.replay.webgl.geom.LineStringsBatcher.SurfaceFlags>}
  * @private
  * @const
  */
-ol.renderer.replay.webgl.geom.LineBatcher.FLAGS_SEGMENT_ = [
-  ol.renderer.replay.
-      webgl.geom.LineBatcher.SurfaceFlags.IN_LEFT,
-  ol.renderer.replay.
-      webgl.geom.LineBatcher.SurfaceFlags.IN_RIGHT,
-  ol.renderer.replay.
-      webgl.geom.LineBatcher.SurfaceFlags.CENTER,
-  ol.renderer.replay.
-      webgl.geom.LineBatcher.SurfaceFlags.OUT_LEFT,
-  ol.renderer.replay.
-      webgl.geom.LineBatcher.SurfaceFlags.OUT_RIGHT
+ol.renderer.replay.webgl.geom.LineStringsBatcher.FLAGS_SEGMENT_ = [
+  ol.renderer.replay.webgl.geom.LineStringsBatcher.SurfaceFlags.IN_LEFT,
+  ol.renderer.replay.webgl.geom.LineStringsBatcher.SurfaceFlags.IN_RIGHT,
+  ol.renderer.replay.webgl.geom.LineStringsBatcher.SurfaceFlags.CENTER,
+  ol.renderer.replay.webgl.geom.LineStringsBatcher.SurfaceFlags.OUT_LEFT,
+  ol.renderer.replay.webgl.geom.LineStringsBatcher.SurfaceFlags.OUT_RIGHT
 ];
 
 
@@ -251,21 +243,24 @@ ol.renderer.replay.webgl.geom.LineBatcher.FLAGS_SEGMENT_ = [
  * Surface flags at line ends.
  *
  * @type {Array.<
- *      ol.renderer.replay.webgl.geom.LineBatcher.SurfaceFlags>}
+ *      ol.renderer.replay.webgl.geom.LineStringsBatcher.SurfaceFlags>}
  * @private
  * @const
  */
-ol.renderer.replay.webgl.geom.LineBatcher.FLAGS_TERMINAL_ = [
-  ol.renderer.replay.
-      webgl.geom.LineBatcher.SurfaceFlags.TERMINAL_IN_LEFT,
-  ol.renderer.replay.
-      webgl.geom.LineBatcher.SurfaceFlags.TERMINAL_IN_RIGHT,
-  ol.renderer.replay.
-      webgl.geom.LineBatcher.SurfaceFlags.UNREFERENCED,
-  ol.renderer.replay.
-      webgl.geom.LineBatcher.SurfaceFlags.TERMINAL_OUT_LEFT,
-  ol.renderer.replay.
-      webgl.geom.LineBatcher.SurfaceFlags.TERMINAL_OUT_RIGHT
+ol.renderer.replay.webgl.geom.LineStringsBatcher.FLAGS_TERMINAL_ = [
+  ol.renderer.replay.webgl.geom.LineStringsBatcher.SurfaceFlags.TERMINAL |
+      ol.renderer.replay.webgl.geom.LineStringsBatcher.SurfaceFlags.IN_LEFT,
+
+  ol.renderer.replay.webgl.geom.LineStringsBatcher.SurfaceFlags.TERMINAL |
+      ol.renderer.replay.webgl.geom.LineStringsBatcher.SurfaceFlags.IN_RIGHT,
+
+  ol.renderer.replay.webgl.geom.LineStringsBatcher.SurfaceFlags.UNREFERENCED,
+
+  ol.renderer.replay.webgl.geom.LineStringsBatcher.SurfaceFlags.TERMINAL |
+      ol.renderer.replay.webgl.geom.LineStringsBatcher.SurfaceFlags.OUT_LEFT,
+
+  ol.renderer.replay.webgl.geom.LineStringsBatcher.SurfaceFlags.TERMINAL |
+      ol.renderer.replay.webgl.geom.LineStringsBatcher.SurfaceFlags.OUT_RIGHT
 ];
 
 
@@ -280,7 +275,7 @@ ol.renderer.replay.webgl.geom.LineBatcher.FLAGS_TERMINAL_ = [
  * @return {number} Outgoing base index of last segment.
  * @private
  */
-ol.renderer.replay.webgl.geom.LineBatcher.emitLineSegmentsIndices_ =
+ol.renderer.replay.webgl.geom.LineStringsBatcher.emitLineSegmentsIndices_ =
     function(indices, i, n, iStride, opt_iNext) {
 
   var j;

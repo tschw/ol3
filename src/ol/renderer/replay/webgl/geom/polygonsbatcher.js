@@ -1,4 +1,4 @@
-goog.provide('ol.renderer.replay.webgl.geom.PolygonBatcher');
+goog.provide('ol.renderer.replay.webgl.geom.PolygonsBatcher');
 
 goog.require('goog.math');
 
@@ -7,7 +7,7 @@ goog.require('libtess.GluTesselator');
 
 goog.require('ol.renderer.replay.api.Batch');
 goog.require('ol.renderer.replay.webgl.Batcher');
-goog.require('ol.renderer.replay.webgl.geom.LineBatcher');
+goog.require('ol.renderer.replay.webgl.geom.LineStringsBatcher');
 goog.require('ol.renderer.replay.webgl.geom.gpuData');
 
 
@@ -16,7 +16,7 @@ goog.require('ol.renderer.replay.webgl.geom.gpuData');
  * @constructor
  * @extends {ol.renderer.replay.webgl.Batcher}
  */
-ol.renderer.replay.webgl.geom.PolygonBatcher = function() {
+ol.renderer.replay.webgl.geom.PolygonsBatcher = function() {
 
   goog.base(this);
 
@@ -55,10 +55,10 @@ ol.renderer.replay.webgl.geom.PolygonBatcher = function() {
   // the winding rule
   tess.gluTessCallback(
       libtess.gluEnum.GLU_TESS_ERROR,
-      ol.renderer.replay.webgl.geom.PolygonBatcher.tessErrorCallback_);
+      ol.renderer.replay.webgl.geom.PolygonsBatcher.tessErrorCallback_);
   tess.gluTessCallback(
       libtess.gluEnum.GLU_TESS_VERTEX_DATA,
-      ol.renderer.replay.webgl.geom.PolygonBatcher.tessVertexCallback_);
+      ol.renderer.replay.webgl.geom.PolygonsBatcher.tessVertexCallback_);
   tess.gluTessCallback(
       libtess.gluEnum.GLU_TESS_COMBINE,
       goog.bind(this.tessCombineCallback_, this));
@@ -70,14 +70,14 @@ ol.renderer.replay.webgl.geom.PolygonBatcher = function() {
   tess.gluTessNormal(0, 0, 1);
 };
 goog.inherits(
-    ol.renderer.replay.webgl.geom.PolygonBatcher,
+    ol.renderer.replay.webgl.geom.PolygonsBatcher,
     ol.renderer.replay.webgl.Batcher);
 
 
 /**
  * @override
  */
-ol.renderer.replay.webgl.geom.PolygonBatcher.prototype.encodeGeometries =
+ol.renderer.replay.webgl.geom.PolygonsBatcher.prototype.encodeGeometries =
     function(geometries) {
 
   var context = this.context,
@@ -128,7 +128,7 @@ ol.renderer.replay.webgl.geom.PolygonBatcher.prototype.encodeGeometries =
 
   // Batch lines for polygon outlines or smoothing
 
-  ol.renderer.replay.webgl.geom.LineBatcher.prepareSetStyle(
+  ol.renderer.replay.webgl.geom.LineStringsBatcher.prepareSetStyle(
       context, polygons.strokeColor, polygons.strokeWidth,
       this.strokeStyle_);
 
@@ -136,7 +136,7 @@ ol.renderer.replay.webgl.geom.PolygonBatcher.prototype.encodeGeometries =
 
     end = Math.abs(offsets[j]);
 
-    ol.renderer.replay.webgl.geom.LineBatcher.linearRing(
+    ol.renderer.replay.webgl.geom.LineStringsBatcher.linearRing(
         context, coords, offset, end);
   }
 
@@ -153,7 +153,7 @@ ol.renderer.replay.webgl.geom.PolygonBatcher.prototype.encodeGeometries =
  * @param {Array.<number>} indices - index data (argument to BeginPolygon).
  * @private
  */
-ol.renderer.replay.webgl.geom.PolygonBatcher.tessVertexCallback_ =
+ol.renderer.replay.webgl.geom.PolygonsBatcher.tessVertexCallback_ =
     function(index, indices) {
 
   indices.push(index);
@@ -169,7 +169,7 @@ ol.renderer.replay.webgl.geom.PolygonBatcher.tessVertexCallback_ =
  * @return {number} Index of new vertex.
  * @private
  */
-ol.renderer.replay.webgl.geom.PolygonBatcher.prototype.tessCombineCallback_ =
+ol.renderer.replay.webgl.geom.PolygonsBatcher.prototype.tessCombineCallback_ =
     function(coord, indices, weights) {
 
   // Contours that intersect each other or themselves may yield undesirable

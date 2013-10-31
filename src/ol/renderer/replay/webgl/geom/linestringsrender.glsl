@@ -1,5 +1,5 @@
-//! NAMESPACE=ol.renderer.replay.webgl.geom.LineRenderShader
-//! CLASS=ol.renderer.replay.webgl.geom.LineRenderShader
+//! NAMESPACE=ol.renderer.replay.webgl.geom.LineStringsRenderShader
+//! CLASS=ol.renderer.replay.webgl.geom.LineStringsRenderShader
 
 //! COMMON
 
@@ -32,11 +32,11 @@ float rcpGammaIn = RenderParams.y;
 //-float rcpGammaOut = RenderParams.z;
 
 
-//! JSREQUIRE ol.renderer.replay.webgl.geom.LineBatcher
-//! JSCONST CTRL_LINE_CENTER   ol.renderer.replay.webgl.geom.LineBatcher.SurfaceFlags.CENTER.toFixed(1)
-//! JSCONST CTRL_TERMINAL      ol.renderer.replay.webgl.geom.LineBatcher.SurfaceFlags.TERMINAL.toFixed(1)
-//! JSCONST CTRL_RIGHT_EDGE    ol.renderer.replay.webgl.geom.LineBatcher.SurfaceFlags.RIGHT.toFixed(1)
-//! JSCONST CTRL_OUTGOING_EDGE ol.renderer.replay.webgl.geom.LineBatcher.SurfaceFlags.OUTGOING.toFixed(1)
+//! JSREQUIRE ol.renderer.replay.webgl.geom.LineStringsBatcher
+//! JSCONST CTRL_LINE_CENTER   ol.renderer.replay.webgl.geom.LineStringsBatcher.SurfaceFlags.CENTER.toFixed(1)
+//! JSCONST CTRL_TERMINAL      ol.renderer.replay.webgl.geom.LineStringsBatcher.SurfaceFlags.TERMINAL.toFixed(1)
+//! JSCONST CTRL_RIGHT_EDGE    ol.renderer.replay.webgl.geom.LineStringsBatcher.SurfaceFlags.RIGHT.toFixed(1)
+//! JSCONST CTRL_OUTGOING_EDGE ol.renderer.replay.webgl.geom.LineStringsBatcher.SurfaceFlags.OUTGOING.toFixed(1)
 
 vec2 lineExtrusion(out vec2 texCoord,
                    vec2 coordPrev, vec2 coordHere, vec2 coordNext,
@@ -51,7 +51,7 @@ vec2 lineExtrusion(out vec2 texCoord,
     vec2 outward = safeNormalized(dirIncoming - dirOutgoing);
 
     float sinWinding = dot(
-        rotatedCcw(dirIncoming),   // normal to the left of incoming leg
+        rotatedCcw(dirIncoming),  // normal to the left of incoming leg
         outward);                 // vertex normal on the convex side
     float sgnWinding = sign(sinWinding);
 
@@ -153,8 +153,8 @@ float rcpGammaOut = RenderParams.z;
 
 
 float blendCoeff(vec2 edge0, vec2 edge1, vec2 x) {
-  vec2 weight = smoothstep(edge0, edge1, x);
-  return max(weight.x, weight.y);
+    vec2 weight = smoothstep(edge0, edge1, x);
+    return max(weight.x, weight.y);
 }
 
 void main(void) {

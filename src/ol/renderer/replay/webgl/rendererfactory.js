@@ -3,8 +3,8 @@ goog.require('ol.renderer.replay.api.RendererFactory');
 goog.require('ol.renderer.replay.input');
 goog.require('ol.renderer.replay.spi.Factory');
 goog.require('ol.renderer.replay.webgl.Renderer');
-goog.require('ol.renderer.replay.webgl.geom.LineRender');
-goog.require('ol.renderer.replay.webgl.geom.PolygonRender');
+goog.require('ol.renderer.replay.webgl.geom.LineStringsRender');
+goog.require('ol.renderer.replay.webgl.geom.PolygonsRender');
 
 
 
@@ -19,11 +19,11 @@ ol.renderer.replay.webgl.RendererFactory = function() {
 
   this.registerGeometriesHandler(
       ol.renderer.replay.input.LineStrings,
-      ol.renderer.replay.webgl.geom.LineRender);
+      ol.renderer.replay.webgl.geom.LineStringsRender);
 
   this.registerGeometriesHandler(
       ol.renderer.replay.input.Polygons,
-      ol.renderer.replay.webgl.geom.PolygonRender);
+      ol.renderer.replay.webgl.geom.PolygonsRender);
 
 };
 goog.inherits(

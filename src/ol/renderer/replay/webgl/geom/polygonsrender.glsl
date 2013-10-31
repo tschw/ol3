@@ -1,5 +1,5 @@
-//! NAMESPACE=ol.renderer.replay.webgl.geom.PolygonRenderShader
-//! CLASS=ol.renderer.replay.webgl.geom.PolygonRenderShader
+//! NAMESPACE=ol.renderer.replay.webgl.geom.PolygonsRenderShader
+//! CLASS=ol.renderer.replay.webgl.geom.PolygonsRenderShader
 
 //! COMMON
 

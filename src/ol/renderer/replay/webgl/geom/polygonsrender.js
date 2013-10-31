@@ -1,10 +1,10 @@
-goog.provide('ol.renderer.replay.webgl.geom.PolygonRender');
+goog.provide('ol.renderer.replay.webgl.geom.PolygonsRender');
 
 goog.require('goog.webgl');
 
 goog.require('ol.renderer.replay.input');
 goog.require('ol.renderer.replay.webgl.Render');
-goog.require('ol.renderer.replay.webgl.geom.PolygonRenderShader');
+goog.require('ol.renderer.replay.webgl.geom.PolygonsRenderShader');
 
 
 
@@ -12,34 +12,34 @@ goog.require('ol.renderer.replay.webgl.geom.PolygonRenderShader');
  * @constructor
  * @extends {ol.renderer.replay.webgl.Render}
  */
-ol.renderer.replay.webgl.geom.PolygonRender = function() {
+ol.renderer.replay.webgl.geom.PolygonsRender = function() {
   goog.base(this);
 };
 goog.inherits(
-    ol.renderer.replay.webgl.geom.PolygonRender,
+    ol.renderer.replay.webgl.geom.PolygonsRender,
     ol.renderer.replay.webgl.Render);
 
 
 /**
- * @type {ol.renderer.replay.webgl.geom.PolygonRenderShader.Locations}
+ * @type {ol.renderer.replay.webgl.geom.PolygonsRenderShader.Locations}
  * @private
  */
-ol.renderer.replay.webgl.geom.PolygonRender.prototype.
+ol.renderer.replay.webgl.geom.PolygonsRender.prototype.
     glLocations_ = null;
 
 
 /**
  * @inheritDoc
  */
-ol.renderer.replay.webgl.geom.PolygonRender.prototype.glSetReady =
+ol.renderer.replay.webgl.geom.PolygonsRender.prototype.glSetReady =
     function(gl) {
 
   var program = this.context.createGlProgram(
-      ol.renderer.replay.webgl.geom.PolygonRenderShaderVertex,
-      ol.renderer.replay.webgl.geom.PolygonRenderShaderFragment);
+      ol.renderer.replay.webgl.geom.PolygonsRenderShaderVertex,
+      ol.renderer.replay.webgl.geom.PolygonsRenderShaderFragment);
 
   var locations = new ol.renderer.replay.webgl.geom.
-      PolygonRenderShader.Locations(gl, program);
+      PolygonsRenderShader.Locations(gl, program);
 
   this.glProgram = program;
   this.glLocations_ = locations;
@@ -54,7 +54,7 @@ ol.renderer.replay.webgl.geom.PolygonRender.prototype.glSetReady =
 /**
  * @inheritDoc
  */
-ol.renderer.replay.webgl.geom.PolygonRender.prototype.setStyle =
+ol.renderer.replay.webgl.geom.PolygonsRender.prototype.setStyle =
     function(batch, offset) {
 
   var controlStream = batch.controlStream;
@@ -71,7 +71,7 @@ ol.renderer.replay.webgl.geom.PolygonRender.prototype.setStyle =
 /**
  * @inheritDoc
  */
-ol.renderer.replay.webgl.geom.PolygonRender.prototype.
+ol.renderer.replay.webgl.geom.PolygonsRender.prototype.
     glApplyParameters = function(gl, params) {
 
   var locations = this.glLocations_;

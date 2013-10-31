@@ -1,10 +1,10 @@
-goog.provide('ol.renderer.replay.webgl.geom.LineRender');
+goog.provide('ol.renderer.replay.webgl.geom.LineStringsRender');
 
 goog.require('goog.webgl');
 
 goog.require('ol.renderer.replay.input');
 goog.require('ol.renderer.replay.webgl.Render');
-goog.require('ol.renderer.replay.webgl.geom.LineRenderShader');
+goog.require('ol.renderer.replay.webgl.geom.LineStringsRenderShader');
 
 
 
@@ -12,34 +12,34 @@ goog.require('ol.renderer.replay.webgl.geom.LineRenderShader');
  * @constructor
  * @extends {ol.renderer.replay.webgl.Render}
  */
-ol.renderer.replay.webgl.geom.LineRender = function() {
+ol.renderer.replay.webgl.geom.LineStringsRender = function() {
   goog.base(this);
 };
 goog.inherits(
-    ol.renderer.replay.webgl.geom.LineRender,
+    ol.renderer.replay.webgl.geom.LineStringsRender,
     ol.renderer.replay.webgl.Render);
 
 
 /**
- * @type {ol.renderer.replay.webgl.geom.LineRenderShader.Locations}
+ * @type {ol.renderer.replay.webgl.geom.LineStringsRenderShader.Locations}
  * @private
  */
-ol.renderer.replay.webgl.geom.LineRender.prototype.
+ol.renderer.replay.webgl.geom.LineStringsRender.prototype.
     glLocations_ = null;
 
 
 /**
  * @inheritDoc
  */
-ol.renderer.replay.webgl.geom.LineRender.prototype.glSetReady =
+ol.renderer.replay.webgl.geom.LineStringsRender.prototype.glSetReady =
     function(gl) {
 
   var program = this.context.createGlProgram(
-      ol.renderer.replay.webgl.geom.LineRenderShaderVertex,
-      ol.renderer.replay.webgl.geom.LineRenderShaderFragment);
+      ol.renderer.replay.webgl.geom.LineStringsRenderShaderVertex,
+      ol.renderer.replay.webgl.geom.LineStringsRenderShaderFragment);
 
   var locations = new ol.renderer.replay.webgl.geom.
-      LineRenderShader.Locations(gl, program);
+      LineStringsRenderShader.Locations(gl, program);
 
   this.glProgram = program;
   this.glLocations_ = locations;
@@ -57,7 +57,7 @@ ol.renderer.replay.webgl.geom.LineRender.prototype.glSetReady =
 /**
  * @inheritDoc
  */
-ol.renderer.replay.webgl.geom.LineRender.prototype.setStyle =
+ol.renderer.replay.webgl.geom.LineStringsRender.prototype.setStyle =
     function(batch, offset) {
 
   var controlStream = batch.controlStream;
@@ -75,7 +75,7 @@ ol.renderer.replay.webgl.geom.LineRender.prototype.setStyle =
 /**
  * @inheritDoc
  */
-ol.renderer.replay.webgl.geom.LineRender.prototype.
+ol.renderer.replay.webgl.geom.LineStringsRender.prototype.
     glApplyParameters = function(gl, params) {
 
   var locations = this.glLocations_;
