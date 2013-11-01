@@ -62,13 +62,14 @@ ol.renderer.replay.webgl.geom.LineStringsRender.prototype.setStyle =
 
   var controlStream = batch.controlStream;
 
-  this.context.gl.vertexAttrib3f(
+  this.context.gl.vertexAttrib4f(
       this.glLocations_.Style,
       controlStream[offset + 0],
       controlStream[offset + 1],
-      controlStream[offset + 2]);
+      controlStream[offset + 2],
+      1.0 / controlStream[offset + 3]);
 
-  return offset + 3;
+  return offset + 4;
 };
 
 

@@ -130,7 +130,7 @@ ol.renderer.replay.webgl.geom.PolygonsBatcher.prototype.encodeGeometries =
 
   ol.renderer.replay.webgl.geom.LineStringsBatcher.prepareSetStyle(
       context, polygons.strokeColor, polygons.strokeWidth,
-      this.strokeStyle_);
+      polygons.miterLimit, this.strokeStyle_);
 
   for (offset = 0, j = 0, n = offsets.length; j < n; ++j, offset = end) {
 

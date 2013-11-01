@@ -69,9 +69,10 @@ goog.inherits(
  * @param {ol.renderer.replay.api.Numbers} offsets Array of offsets.
  * @param {number} width Line width.
  * @param {ol.Color} color Line color.
+ * @param {number} miterLimit Miter limit.
  */
 ol.renderer.replay.input.LineStrings =
-    function(coords, offsets, width, color) {
+    function(coords, offsets, width, color, miterLimit) {
 
   goog.base(this);
   /** @type {ol.renderer.replay.api.Numbers} */
@@ -82,6 +83,8 @@ ol.renderer.replay.input.LineStrings =
   this.width = width;
   /** @type {ol.Color} */
   this.color = color;
+  /** @type {number} */
+  this.miterLimit = miterLimit;
 };
 goog.inherits(
     ol.renderer.replay.input.LineStrings,
@@ -101,9 +104,10 @@ goog.inherits(
  * @param {ol.Color} fillColor Fill color.
  * @param {number} strokeWidth Stroke width.
  * @param {ol.Color} strokeColor Stroke color.
+ * @param {number} miterLimit Miter limit.
  */
-ol.renderer.replay.input.Polygons =
-    function(coords, offsets, fillColor, strokeWidth, strokeColor) {
+ol.renderer.replay.input.Polygons = function(
+    coords, offsets, fillColor, strokeWidth, strokeColor, miterLimit) {
 
   /** @type {ol.renderer.replay.api.Numbers} */
   this.coords = this.trackTransferable(coords);
@@ -115,6 +119,8 @@ ol.renderer.replay.input.Polygons =
   this.strokeWidth = strokeWidth;
   /** @type {ol.Color} */
   this.strokeColor = strokeColor;
+  /** @type {number} */
+  this.miterLimit = miterLimit;
 };
 goog.inherits(
     ol.renderer.replay.input.Polygons,

@@ -261,6 +261,7 @@ ol.renderer.webgl.VectorLayer2.prototype.batchPolygons_ =
   var fillColor = new ol.Color(0, 0, 255, 0.5);
   var strokeWidth = 4.0; // pixels
   var strokeColor = new ol.Color(255, 255, 0, 1);
+  var miterLimit = 2.0;
 
   var coords = [];
   var offsets = [];
@@ -276,7 +277,7 @@ ol.renderer.webgl.VectorLayer2.prototype.batchPolygons_ =
 
   this.batchBuilder_.addGeometries(
       new ol.renderer.replay.input.Polygons(
-          coords, offsets, fillColor, strokeWidth, strokeColor));
+          coords, offsets, fillColor, strokeWidth, strokeColor, miterLimit));
 };
 
 
@@ -293,6 +294,7 @@ ol.renderer.webgl.VectorLayer2.prototype.batchLineStrings_ =
   // TODO Get style data and replace this hard-wired hack
   var width = 15.0; // pixels
   var color = new ol.Color(255, 0, 0, 0.5);
+  var miterLimit = 2.0;
 
   // Draw geometry to batch
   var i, collection, buffer;
@@ -304,7 +306,7 @@ ol.renderer.webgl.VectorLayer2.prototype.batchLineStrings_ =
         new ol.renderer.replay.input.LineStrings(
             collection.buf.getArray(),
             goog.object.getValues(collection.ends),
-            width, color));
+            width, color, miterLimit));
 
   }
 };

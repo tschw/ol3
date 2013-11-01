@@ -33,8 +33,8 @@ ol.renderer.replay.webgl.geom.LineStringsBatcher.prototype.encodeGeometries =
   var lineStrings = /** @type {ol.renderer.replay.input.LineStrings} */
       (geometries);
 
-  ol.renderer.replay.webgl.geom.LineStringsBatcher.encodeStyle_(
-      this.style_, lineStrings.color, lineStrings.width);
+  ol.renderer.replay.webgl.geom.LineStringsBatcher.encodeStyle_(this.style_,
+      lineStrings.color, lineStrings.width, lineStrings.miterLimit);
   this.context.requestStyle(this.style_);
 
   var coords = lineStrings.coords,
@@ -108,18 +108,19 @@ ol.renderer.replay.webgl.geom.LineStringsBatcher.prototype.encodeGeometries =
  * @param {ol.renderer.replay.webgl.BatchBuilder} context
  * @param {ol.Color} color
  * @param {number} width
+ * @param {number} miterLimit
  * @param {Array.<number>=} opt_tmpArray Array to be used
  *    to encode the style to avoid allocation.
  */
 ol.renderer.replay.webgl.geom.LineStringsBatcher.prepareSetStyle =
-    function(context, color, width, opt_tmpArray) {
+    function(context, color, width, miterLimit, opt_tmpArray) {
 
   context.selectType(/** @type {?} */(
       ol.renderer.replay.input.LineStrings.prototype.typeId));
 
   var style = opt_tmpArray || [];
   ol.renderer.replay.webgl.geom.
-      LineStringsBatcher.encodeStyle_(style, color, width);
+      LineStringsBatcher.encodeStyle_(style, color, width, miterLimit);
   context.requestStyle(style);
 };
 
@@ -147,16 +148,16 @@ ol.renderer.replay.webgl.geom.LineStringsBatcher.linearRing =
  * @param {Array.<number>} styleData Destination array.
  * @param {ol.Color} color
  * @param {number} width
+ * @param {number} miterLimit
  * @private
  */
 ol.renderer.replay.webgl.geom.LineStringsBatcher.encodeStyle_ =
-    function(styleData, color, width) {
-
-  // TODO tighten encoding / add miter limit
+    function(styleData, color, width, miterLimit) {
 
   styleData[0] = width * 0.5;
   styleData[1] = ol.renderer.replay.webgl.geom.gpuData.encodeRGB(color);
   styleData[2] = color.a;
+  styleData[3] = miterLimit;
 };
 
 
