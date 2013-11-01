@@ -2,6 +2,8 @@ goog.provide('ol.renderer.replay.webgl.Renderer');
 
 goog.require('goog.asserts');
 
+goog.require('ol.renderer.ImageManager');
+
 goog.require('ol.renderer.replay.api.Batch');
 
 goog.require('ol.renderer.replay.spi.GeometriesHandlerCtors');
@@ -100,6 +102,50 @@ ol.renderer.replay.webgl.Renderer.prototype.currentProgram_ = null;
 
 
 /**
+ * Called before rendering to ensure batch can be rendered.
+ *
+ * @param {ol.renderer.replay.webgl.Batch} batch
+ * @private
+ */
+ol.renderer.replay.webgl.Renderer.prototype.prepareBatch_ = function(batch) {
+
+  var gl = this.gl;
+
+  var remap = ol.renderer.ImageManager.
+      getInstance().requireImageSet(batch.imageSet);
+
+  if (! goog.isNull(remap)) {
+    var vertices = batch.vertices;
+    for (var i = batch.texRefOffset, e = vertices.length; i < e; ++i) {
+      vertices[i] = remap[vertices[i]];
+    }
+  }
+
+  if (! goog.isNull(batch.indices)) {
+    if (! goog.isNull(batch.indexBuffer) && gl.isBuffer(batch.indexBuffer)) {
+      gl.bindBuffer(goog.webgl.ELEMENT_ARRAY_BUFFER, batch.indexBuffer);
+    } else {
+      batch.indexBuffer = this.createGlBuffer(
+          goog.webgl.ELEMENT_ARRAY_BUFFER, batch.indices);
+    }
+  }
+
+  if (! goog.isNull(batch.vertexBuffer) && gl.isBuffer(batch.vertexBuffer)) {
+    gl.bindBuffer(goog.webgl.ARRAY_BUFFER, batch.vertexBuffer);
+
+    if (! goog.isNull(remap)) {
+      gl.bufferSubData(
+          goog.webgl.ARRAY_BUFFER, batch.texRefOffset,
+          batch.vertices.subarray(batch.texRefOffset / 4));
+    }
+  } else {
+    batch.vertexBuffer = this.createGlBuffer(
+        goog.webgl.ARRAY_BUFFER, batch.vertices);
+  }
+};
+
+
+/**
  * Called from within 'render' when one or more parameters have been
  * changed to compute preprocessed extra values.
  *
@@ -148,29 +194,19 @@ ol.renderer.replay.spi.Renderer.prototype.prepareParameters_ =
 ol.renderer.replay.webgl.Renderer.prototype.render =
     function(batch) {
 
-  var gl = this.gl;
 
   batch = /** @type {ol.renderer.replay.webgl.Batch} */ (batch);
 
-  if (gl.isContextLost()) {
+  if (this.gl.isContextLost()) {
     return;
   }
 
-  if (! goog.isNull(batch.indices)) {
-    if (! goog.isNull(batch.indexBuffer) && gl.isBuffer(batch.indexBuffer)) {
-      gl.bindBuffer(goog.webgl.ELEMENT_ARRAY_BUFFER, batch.indexBuffer);
-    } else {
-      batch.indexBuffer = this.createGlBuffer(
-          goog.webgl.ELEMENT_ARRAY_BUFFER, batch.indices);
-    }
-  }
+  this.prepareBatch_(batch);
 
-  if (! goog.isNull(batch.vertexBuffer) && gl.isBuffer(batch.vertexBuffer)) {
-    gl.bindBuffer(goog.webgl.ARRAY_BUFFER, batch.vertexBuffer);
-  } else {
-    batch.vertexBuffer = this.createGlBuffer(
-        goog.webgl.ARRAY_BUFFER, batch.vertices);
-  }
+  /**
+   * @type {number}
+   */
+  this.texRefReadOffset = batch.texRefOffset;
 
   if (this.parametersChanged) {
     this.prepareParameters_();

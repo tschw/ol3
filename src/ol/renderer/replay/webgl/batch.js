@@ -11,10 +11,14 @@ goog.require('ol.renderer.replay.spi.ControlStream');
  * @param {ol.renderer.replay.spi.ControlStream} controlStream
  * @param {Array.<number>} indices Index data.
  * @param {Array.<number>} vertices Vertex data.
+ * @param {number} texRefOffset Offset to the block of texture
+ *    references at the end of the vertex data in bytes.
+ * @param {Object.<number,number>} imageSet Images referenced by
+ *    this batch.
  * @param {ol.renderer.replay.api.Batch.ErrorState} errorState
  */
-ol.renderer.replay.webgl.Batch =
-    function(controlStream, indices, vertices, errorState) {
+ol.renderer.replay.webgl.Batch = function(
+    controlStream, indices, vertices, texRefOffset, imageSet, errorState) {
 
   /**
    * @inheritDoc
@@ -35,6 +39,21 @@ ol.renderer.replay.webgl.Batch =
    * @type {Float32Array}
    */
   this.vertices = new Float32Array(vertices);
+
+  /**
+   * Offset to the region (at the end of the vertex buffer) storing texture
+   * references in bytes.
+   *
+   * @type {number}
+   */
+  this.texRefOffset = texRefOffset;
+
+  /**
+   * Texture references used by this batch.
+   *
+   * @type {Object.<number, number>}
+   */
+  this.imageSet = imageSet;
 
   /**
    * @inheritDoc

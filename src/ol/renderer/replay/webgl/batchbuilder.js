@@ -1,5 +1,6 @@
 goog.provide('ol.renderer.replay.webgl.BatchBuilder');
 
+goog.require('goog.array');
 goog.require('goog.log');
 
 goog.require('ol.renderer.replay.spi.BatchBuilder');
@@ -52,6 +53,16 @@ ol.renderer.replay.webgl.BatchBuilder.prototype.reset =
    * @private
    */
   this.nIndicesFlushed_ = 0;
+
+  /**
+   * @type {Array.<number>}
+   */
+  this.imageReferences_ = [];
+
+  /**
+   * @type {Object.<number, number>}
+   */
+  this.usedImages_ = {};
 };
 
 
@@ -63,8 +74,15 @@ ol.renderer.replay.webgl.BatchBuilder.prototype.releaseBatch =
 
   this.flushRender();
 
-  return new ol.renderer.replay.webgl.Batch(
-      this.controlStream, this.indices, this.vertices, this.batchErrorState);
+  var texRefOffset = this.vertices.length * 4;
+  goog.array.extend(this.vertices, this.imageReferences_);
+
+  var batch = new ol.renderer.replay.webgl.Batch(
+      this.controlStream, this.indices, this.vertices,
+      texRefOffset, this.usedImages_, this.batchErrorState);
+
+  this.reset();
+  return batch;
 };
 
 
@@ -75,6 +93,23 @@ ol.renderer.replay.webgl.BatchBuilder.prototype.renderPending =
     function() {
 
   return !! (this.indices.length - this.nIndicesFlushed_);
+};
+
+
+/**
+ * Store references to an image in an extra region of vertex data.
+ *
+ * @param {number} imageId
+ * @param {number} encodedPosition
+ * @param {number} n Number of references.
+ */
+ol.renderer.replay.webgl.BatchBuilder.prototype.addImageReferences =
+    function(imageId, encodedPosition, n) {
+
+  this.usedImages_[imageId] = encodedPosition;
+  for (var i = 0; i < n; ++i) {
+    this.imageReferences_.push(encodedPosition);
+  }
 };
 
 
