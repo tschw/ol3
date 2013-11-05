@@ -391,3 +391,16 @@ goog.vec.Vec2.magnitude = function(vec0) {
   var x = vec0[0], y = vec0[1];
   return Math.sqrt(x * x + y * y);
 };
+
+
+goog.vec.Vec2.setFromArray = function(vec, values) {
+  vec[0] = values[0];
+  vec[1] = values[1];
+  return vec;
+};
+
+goog.vec.Vec2.setFromValues = function(vec, vec0, vec1) {
+  vec[0] = vec0;
+  vec[1] = vec1;
+  return vec;
+};
