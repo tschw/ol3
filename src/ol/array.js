@@ -87,14 +87,19 @@ ol.array.linearFindNearest = function(arr, target, direction) {
 
 
 /**
+ * @typedef {Array|Arguments|ArrayBufferView}
+ */
+ol.array.ArrayLike;
+
+
+/**
  * Copy and count array elements that are unidentical from one array range
  * to another.
  * Source and destination shall not be overlapping ranges in the same array.
  *
- * @template T
- * @param {Array.<T>} dst Destination array.
+ * @param {ol.array.ArrayLike} dst Destination array.
  * @param {number} dstOffs Offset of the range in the destination array.
- * @param {Array.<T>} src Source array.
+ * @param {ol.array.ArrayLike} src Source array.
  * @param {number} srcOffs Offset of the range in the source array.
  * @param {number} n Length of the range.
  * @return {number} Number of different elements.
@@ -113,3 +118,11 @@ ol.array.rangeCopyCountNotSame = function(dst, dstOffs, src, srcOffs, n) {
   }
   return c;
 };
+
+
+/**
+ * Empty array.
+ * @type {Array.<*>}
+ * @const
+ */
+ol.array.EMPTY = [];
