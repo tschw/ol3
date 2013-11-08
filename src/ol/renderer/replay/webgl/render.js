@@ -35,7 +35,7 @@ ol.renderer.replay.webgl.Render.prototype.configure =
       prevRender = /** @type {ol.renderer.replay.webgl.Render} */
       (context.currentRender);
 
-  if (prevRender != this) {
+  if (prevRender != this || goog.isNull(batch)) {
 
     if (! goog.isNull(prevRender)) {
       prevRender.glDeactivate(gl);
@@ -43,7 +43,7 @@ ol.renderer.replay.webgl.Render.prototype.configure =
 
     if (! goog.isNull(batch)) {
 
-      if (goog.isNull(this.glProgram) || ! gl.isProgram(this.glProgram)) {
+      if (! gl.isProgram(this.glProgram)) {
         this.glSetReady(gl);
       }
 
