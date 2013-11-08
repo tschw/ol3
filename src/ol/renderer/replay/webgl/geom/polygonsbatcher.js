@@ -122,9 +122,11 @@ ol.renderer.replay.webgl.geom.PolygonsBatcher.prototype.encodeGeometries =
 
   // Batch lines for polygon outlines or smoothing
 
+  var strokeColor = polygons.strokeWidth > 0 ?
+      polygons.strokeColor : polygons.fillColor;
+
   ol.renderer.replay.webgl.geom.LineStringsBatcher.prepareSetStyle(
-      context, polygons.strokeColor, polygons.strokeWidth,
-      polygons.miterLimit);
+      context, strokeColor, polygons.strokeWidth, polygons.miterLimit);
 
   for (offset = 0, j = 0, n = offsets.length; j < n; ++j, offset = end) {
 
