@@ -24,12 +24,6 @@ ol.renderer.replay.webgl.geom.PolygonsBatcher = function() {
    * @type {Array.<number>}
    * @private
    */
-  this.strokeStyle_ = [];
-
-  /**
-   * @type {Array.<number>}
-   * @private
-   */
   this.polygonStyle_ = [];
 
   /**
@@ -130,7 +124,7 @@ ol.renderer.replay.webgl.geom.PolygonsBatcher.prototype.encodeGeometries =
 
   ol.renderer.replay.webgl.geom.LineStringsBatcher.prepareSetStyle(
       context, polygons.strokeColor, polygons.strokeWidth,
-      polygons.miterLimit, this.strokeStyle_);
+      polygons.miterLimit);
 
   for (offset = 0, j = 0, n = offsets.length; j < n; ++j, offset = end) {
 
