@@ -14,22 +14,30 @@ Thoughts on pending tasks and issues:
 1.1.  Render classes for lines & polygons need to perform blending against
       an input texture for translucent surfaces due to inherent overpainting.
 
+        DONE
+
 1.2.  Point render classes will not want to use it (instead keep all texture
       units for input from the image atlas) and directly blend onto the
       destination framebuffer provided.
+
+        DONE
+
 
 1.3.  Framebuffer textures should use linearized color space for correct
       blending of smooth edges. It is the responsibility of each renderer
       to generate linearized output (this means pow(rgb, 2.3) to de-gamma).
       Color transformation matrices should be applied after de-gamma (yields
       higher quality) by the renders / external renderers involved.
-      The composition stage should use floatingpoint textures where available
-      (the extension is very widely supported on all non-mobile platforms).
+      Finalizing gamma correction can be piggy-backed onto the last blend
+      operation in case there is one.
+
+        DONE (float textures were not necessary, 888 suffices)
 
 1.4.  Ideally the existing code for tile rendering will use this facility,
       as it would save a lot of memory (2 vs. N framebuffer textures, where
       N is the number of layers).
 
+        OPEN
 
 2. Image Management
 
@@ -40,15 +48,19 @@ Thoughts on pending tasks and issues:
       When a new image needs to be allocated, we can iterate all lines and
       see whether we can establish an optimal (or near optimal) fit by
       swapping one image of the line being looked at with another one of
-      appropriate size (or leave appropriate space for an images of average
+      appropriate size (or leave appropriate space for an image of average
       width according to the memory pressure).
       To establish such a situation in practice, line allocation may proceed
       in a recursive fashion: The requested height gets rounded to the next
-      power of ten, for example 8 pixels. If there are no lines for 8 pixels
+      power of two, for example 8 pixels. If there are no lines for 8 pixels
       we allocate two lines within a line for 16 pixels, if there are none
       for 16 pixels a line of height 32 pixels is split, and so on. Let's
       assume we find a line of 32 pixels in height. We have now allocated
       two lines for images of height 8 and one line for images of height 16.
+      Even if the initial assumption does not hold (that is there are high
+      and narrow images), a rotation by 90 degrees solves the issue.
+
+        OPEN, THERE ARE OTHER POSSIBILITIES
 
 
 3. Precision Issues & Level of Detail
@@ -56,6 +68,8 @@ Thoughts on pending tasks and issues:
 3.1.  Very long line segments can erreneously get clipped at deep zoom.
       This issue can trivially be solved by linear subdivision of the input
       coodinates (guess: 8th a globe, or so).
+
+        DONE
 
 3.2.  Clipping errors may occur on large polygons with high resolution outline
       such as continents or large countries. This issue can be solved using
@@ -99,6 +113,9 @@ Thoughts on pending tasks and issues:
       expands to 5 (individually addressable) vertices. Splitting is not yet
       implemented, yet. Also the last coordinate of linear rings will have to
       be re-emitted when split across index ranges.
+
+        DONE (for lines and points)
+
 4.1.1.
       In case of polygons we'd currently have to remap the output from the
       (suboptimal) tesselator to allow reasonable splitting.
@@ -127,3 +144,10 @@ Thoughts on pending tasks and issues:
 5.2.  Eventually it makes sense to have this behavior switchable for points:
       A street label may be projected where a balloon (as google maps uses)
       would better remain billboarded to the screen.
+
+Other issues
+
+- image / imagetile copypasta with inconsistent interfaces "getImage" vs.
+  "getImageElement" (surfaced implementing "ImageProvider")...
+
+
