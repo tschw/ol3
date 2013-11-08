@@ -6,6 +6,7 @@ goog.provide('ol.TileState');
 goog.require('goog.events');
 goog.require('goog.events.EventTarget');
 goog.require('goog.events.EventType');
+goog.require('ol.ImageProvider');
 goog.require('ol.TileCoord');
 
 
@@ -25,6 +26,7 @@ ol.TileState = {
 /**
  * @constructor
  * @extends {goog.events.EventTarget}
+ * @implements {ol.ImageProvider}
  * @param {ol.TileCoord} tileCoord Tile coordinate.
  * @param {ol.TileState} state State.
  */
