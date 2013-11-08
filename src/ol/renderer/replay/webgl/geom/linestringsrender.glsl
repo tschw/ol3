@@ -17,10 +17,11 @@ attribute vec4 Position0;
 attribute vec4 PositionN;
 attribute float Control;
 
-attribute vec3 Style;
+attribute vec4 Style;
 // extent
 // color (rgb)
 // opacity (0..1)
+// reciprocal miter limit
 
 uniform vec4 Pretranslation;
 uniform mat4 Transform;
@@ -134,13 +135,15 @@ void main(void) {
     Color = vec4(decodeRGB(Style.y), Style.z);
     float extent = Style.x + antiAliasing * 0.5; // half the smoothing counts
     Surface.z = -1.0 / extent; // negative scale for Surface.x
+    float rcpMiterLimit = Style.w;
 
     // Apply to 2D position in NDC
     gl_Position.xy += lineExtrusion(Surface.xy,
             projected(Transform * rteDecode(PositionP, Pretranslation)).xy,
             projected(gl_Position).xy,
             projected(Transform * rteDecode(PositionN, Pretranslation)).xy,
-            Control, extent, antiAliasing, 0.5) * gl_Position.w * PixelScale;
+            Control, extent, antiAliasing, rcpMiterLimit) * 
+            gl_Position.w * PixelScale;
 }
 
 
