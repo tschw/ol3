@@ -57,6 +57,28 @@ ol.renderer.replay.webgl.geom.LineStringsRender.prototype.glSetReady =
 /**
  * @inheritDoc
  */
+ol.renderer.replay.webgl.geom.LineStringsRender.prototype.glActivate =
+    function(gl) {
+
+  goog.base(this, 'glActivate', gl);
+  gl.enable(goog.webgl.CULL_FACE);
+};
+
+
+/**
+ * @inheritDoc
+ */
+ol.renderer.replay.webgl.geom.LineStringsRender.prototype.glDeactivate =
+    function(gl) {
+
+  gl.disable(goog.webgl.CULL_FACE);
+  goog.base(this, 'glDeactivate', gl);
+};
+
+
+/**
+ * @inheritDoc
+ */
 ol.renderer.replay.webgl.geom.LineStringsRender.prototype.setStyle =
     function(batch, offset) {
 
