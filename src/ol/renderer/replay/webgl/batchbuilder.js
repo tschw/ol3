@@ -118,6 +118,7 @@ ol.renderer.replay.webgl.BatchBuilder.prototype.addImageReferences =
  */
 ol.renderer.replay.webgl.BatchBuilder.prototype.pushConfig =
     function() {
+
   this.nextVertexIndex = 0;
   this.controlStream.push(this.vertices.length * 4);
 };
@@ -128,6 +129,7 @@ ol.renderer.replay.webgl.BatchBuilder.prototype.pushConfig =
  */
 ol.renderer.replay.webgl.BatchBuilder.prototype.pushIndices =
     function() {
+
   var n = this.indices.length - this.nIndicesFlushed_;
   this.controlStream.push(n);
   this.nIndicesFlushed_ = this.indices.length;
