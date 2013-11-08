@@ -190,7 +190,7 @@ ol.renderer.replay.webgl.geom.PolygonsBatcher.prototype.tessCombineCallback_ =
  * @param {Number} errno Error number.
  * @private
  */
-ol.renderer.replay.webgl.geom.PolygonBatcher.tessErrorCallback_ =
+ol.renderer.replay.webgl.geom.PolygonsBatcher.tessErrorCallback_ =
     function(errno) {
 
   var name = '';
