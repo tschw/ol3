@@ -194,7 +194,7 @@ ol.renderer.replay.webgl.geom.PolygonsBatcher.tessErrorCallback_ =
     function(errno) {
 
   var name = '';
-  if (goog.DEBUG) {
+  if (goog.DEBUG && !COMPILED) {
     // Attempt to find symbol in debug mode.
     // At higher optimization levels, this code is properly stripped by
     // dead-code-elimination and this (internal) error is only reported
