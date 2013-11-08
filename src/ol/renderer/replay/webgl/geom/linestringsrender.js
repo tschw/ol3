@@ -103,18 +103,8 @@ ol.renderer.replay.webgl.geom.LineStringsRender.prototype.
 
   var locations = this.glLocations_;
 
-  gl.uniform2fv(locations.PixelScale,
-      /** @type {Array.<number>} */ (params[ol.renderer.replay.
-          webgl.Renderer.ExtraParameterIndex.NDC_PIXEL_SIZE]));
-
-  gl.uniformMatrix4fv(locations.Transform, false,
-      /** @type {Array.<number>} */ (params[ol.renderer.replay.
-          webgl.Renderer.ExtraParameterIndex.RTE_COORDINATE_TRANSFORM]));
-
-  var tmp = /** @type {Array.<number>} */ (params[ol.renderer.replay.
-          webgl.Renderer.ExtraParameterIndex.RTE_PRETRANSLATION]);
-  gl.uniform4f(
-      locations.Pretranslation, tmp[0], tmp[1], tmp[3], tmp[4]);
+  this.context.setCommonUniforms(
+      locations.Transform, locations.Pretranslation, locations.PixelScale);
 
   gl.uniform3f(locations.RenderParams,
       /** @type {number} */ (params[ol.renderer.replay.

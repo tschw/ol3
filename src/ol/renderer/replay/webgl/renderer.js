@@ -277,3 +277,32 @@ ol.renderer.replay.webgl.Renderer.prototype.createGlBuffer_ =
   gl.bufferData(target, data, goog.webgl.STATIC_DRAW);
   return result;
 };
+
+
+/**
+ * Set uniforms common parameter values.
+ *
+ * @param {WebGLUniformLocation} transform 4x4-Matrix.
+ * @param {WebGLUniformLocation} pretranslation 4-Vector.
+ * @param {WebGLUniformLocation=} opt_pixelScale 2-Vector.
+ */
+ol.renderer.replay.webgl.Renderer.prototype.setCommonUniforms =
+    function(transform, pretranslation, opt_pixelScale) {
+
+  var gl = this.gl, params = this.parameters;
+
+  gl.uniformMatrix4fv(transform, false,
+      /** @type {Array.<number>} */ (params[ol.renderer.replay.
+          webgl.Renderer.ExtraParameterIndex.RTE_COORDINATE_TRANSFORM]));
+
+  var tmp = /** @type {Array.<number>} */ (params[ol.renderer.replay.
+          webgl.Renderer.ExtraParameterIndex.RTE_PRETRANSLATION]);
+  gl.uniform4f(pretranslation, tmp[0], tmp[1], tmp[3], tmp[4]);
+
+  if (goog.isDefAndNotNull(opt_pixelScale)) {
+
+    gl.uniform2fv(opt_pixelScale,
+        /** @type {Array.<number>} */ (params[ol.renderer.replay.
+            webgl.Renderer.ExtraParameterIndex.NDC_PIXEL_SIZE]));
+  }
+};

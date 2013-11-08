@@ -76,12 +76,7 @@ ol.renderer.replay.webgl.geom.PolygonsRender.prototype.
 
   var locations = this.glLocations_;
 
-  gl.uniformMatrix4fv(locations.Transform, false,
-      /** @type {Array.<number>} */ (params[ol.renderer.replay.
-          webgl.Renderer.ExtraParameterIndex.RTE_COORDINATE_TRANSFORM]));
+  this.context.setCommonUniforms(
+      locations.Transform, locations.Pretranslation);
 
-  var tmp = /** @type {Array.<number>} */ (params[ol.renderer.replay.
-          webgl.Renderer.ExtraParameterIndex.RTE_PRETRANSLATION]);
-  gl.uniform4f(
-      locations.Pretranslation, tmp[0], tmp[1], tmp[3], tmp[4]);
 };
