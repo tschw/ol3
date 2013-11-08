@@ -1,7 +1,7 @@
 
 
 vec3 applyGamma(vec3 color, float reciprocalGamma) {
-    return pow(clamp(color, 0.0, 1.0), vec3(reciprocalGamma));
+    return pow(color, vec3(reciprocalGamma));
 }
 
 vec2 rotatedCw(vec2 p) {
@@ -13,7 +13,7 @@ vec2 rotatedCcw(vec2 p) {
 }
 
 // Machine epsilon is at ~0.6*10^-8 for a typical 32 bit ALU.
-// Usually we don't need the precision of the entire mantissa
+// Usually we don't need the precision of the entire mantissa 
 // but at some point the vector becomes rather useless.
 // Also, sometimes just error dirt creep up the low bits for
 // values that should yield zero.

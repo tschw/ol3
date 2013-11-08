@@ -54,6 +54,28 @@ ol.renderer.replay.webgl.geom.PolygonsRender.prototype.glSetReady =
 /**
  * @inheritDoc
  */
+ol.renderer.replay.webgl.geom.PolygonsRender.prototype.glActivate =
+    function(gl) {
+
+  goog.base(this, 'glActivate', gl);
+  gl.disable(goog.webgl.BLEND);
+};
+
+
+/**
+ * @inheritDoc
+ */
+ol.renderer.replay.webgl.geom.PolygonsRender.prototype.glDeactivate =
+    function(gl) {
+
+  gl.enable(goog.webgl.BLEND);
+  goog.base(this, 'glDeactivate', gl);
+};
+
+
+/**
+ * @inheritDoc
+ */
 ol.renderer.replay.webgl.geom.PolygonsRender.prototype.setStyle =
     function(batch, offset) {
 
@@ -79,4 +101,7 @@ ol.renderer.replay.webgl.geom.PolygonsRender.prototype.
   this.context.setCommonUniforms(
       locations.Transform, locations.Pretranslation);
 
+  gl.uniform1f(locations.RcpGammaIn,
+      /** @type {number} */ (params[ol.renderer.replay.
+          webgl.Renderer.ExtraParameterIndex.RECIPROCAL_COLOR_INPUT_GAMMA]));
 };

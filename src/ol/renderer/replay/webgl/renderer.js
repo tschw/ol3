@@ -5,15 +5,18 @@ goog.require('goog.asserts');
 goog.require('ol.renderer.ImageManager');
 
 goog.require('ol.renderer.replay.api.Batch');
+goog.require('ol.renderer.replay.api.Renderer');
 
 goog.require('ol.renderer.replay.spi.GeometriesHandlerCtors');
 goog.require('ol.renderer.replay.spi.Render');
 goog.require('ol.renderer.replay.spi.Renderer');
 
 goog.require('ol.renderer.replay.webgl.Batch');
+goog.require('ol.renderer.replay.webgl.Compositor');
 goog.require('ol.renderer.replay.webgl.highPrecision');
 
 goog.require('ol.webgl.ShaderCache');
+goog.require('ol.webgl.TextureCache');
 goog.require('ol.webgl.shader');
 
 
@@ -49,6 +52,34 @@ ol.renderer.replay.webgl.Renderer = function(renderCtors, gl) {
    */
   this.createGlProgram = shaderCache.getProgram.bind(shaderCache);
 
+  /**
+   * @type {ol.webgl.TextureCache}
+   * @private
+   */
+  this.textureCache_ = new ol.webgl.TextureCache(gl, 64);
+
+  /**
+   * @type {ol.renderer.replay.webgl.Compositor}
+   * @private
+   */
+  this.compositor_ = new ol.renderer.replay.webgl.Compositor(gl, shaderCache);
+
+  /**
+   * FIXME Remove this hack to render to a custom framebuffer (it breaks upon
+   * context loss)
+   * @type {WebGLFramebuffer}
+   * @private
+   */
+  this.outputFramebuffer_ = /** @type {WebGLFramebuffer} */ (
+      gl.getParameter(goog.webgl.FRAMEBUFFER_BINDING));
+
+  this.compositor_.clear(0.5, 0.5, 0.5);
+
+  /**
+   * @type {boolean}
+   * @private
+   */
+  this.layerReady_ = false;
 
   var params = this.parameters;
   params[ol.renderer.replay.webgl.Renderer.
@@ -77,8 +108,7 @@ ol.renderer.replay.webgl.Renderer.ExtraParameterIndex = {
   RTE_COORDINATE_TRANSFORM: 101,
   RTE_PRETRANSLATION: 102,
   RECIPROCAL_IMAGE_INPUT_GAMMA: 103,
-  RECIPROCAL_COLOR_INPUT_GAMMA: 104,
-  RECIPROCAL_OUTPUT_GAMMA: 105
+  RECIPROCAL_COLOR_INPUT_GAMMA: 104
 };
 
 
@@ -181,11 +211,6 @@ ol.renderer.replay.spi.Renderer.prototype.prepareParameters_ =
       webgl.Renderer.ExtraParameterIndex.RECIPROCAL_COLOR_INPUT_GAMMA] =
       1 / params[ol.renderer.replay.
           api.Renderer.ParameterIndex.HINT_COLOR_INPUT_GAMMA];
-
-  params[ol.renderer.replay.
-      webgl.Renderer.ExtraParameterIndex.RECIPROCAL_OUTPUT_GAMMA] =
-      1 / params[ol.renderer.replay.
-          api.Renderer.ParameterIndex.HINT_OUTPUT_GAMMA];
 };
 
 
@@ -203,6 +228,10 @@ ol.renderer.replay.webgl.Renderer.prototype.render =
   }
 
   this.prepareBatch_(batch);
+
+  if (! this.layerReady_) {
+    this.beginLayer();
+  }
 
   /**
    * @type {number}
@@ -225,9 +254,9 @@ ol.renderer.replay.webgl.Renderer.prototype.render =
 
 
 /**
- * @override
+ * @private
  */
-ol.renderer.replay.webgl.Renderer.prototype.flush = function() {
+ol.renderer.replay.webgl.Renderer.prototype.resetState_ = function() {
 
   if (! goog.isNull(this.currentRender)) {
     this.currentRender.configure(null, 0);
@@ -235,6 +264,32 @@ ol.renderer.replay.webgl.Renderer.prototype.flush = function() {
   }
 
   this.currentProgram_ = null;
+};
+
+
+/**
+ * @inheritDoc
+ */
+ol.renderer.replay.webgl.Renderer.prototype.beginLayer =
+    function(opt_opacity) {
+
+  this.resetState_();
+  this.compositor_.beginPass(opt_opacity);
+  this.layerReady_ = true;
+};
+
+
+/**
+ * @override
+ */
+ol.renderer.replay.webgl.Renderer.prototype.flush = function() {
+
+  this.resetState_();
+  this.compositor_.present(/** @type {number} */ (this.parameters[
+      ol.renderer.replay.api.Renderer.ParameterIndex.HINT_OUTPUT_GAMMA]),
+      this.outputFramebuffer_);
+  this.compositor_.clear(0.5, 0.5, 0.5);
+  this.layerReady_ = false;
 };
 
 

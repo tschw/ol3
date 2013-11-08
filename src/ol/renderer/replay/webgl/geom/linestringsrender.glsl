@@ -6,6 +6,10 @@
 varying vec4 Color;
 varying vec3 Surface;
 
+uniform mediump vec2 PixelScale;
+uniform mediump vec2 RenderParams;
+mediump float antiAliasing  = RenderParams.x;
+mediump float rcpGammaIn    = RenderParams.y;
 
 //! VERTEX
 
@@ -25,13 +29,6 @@ attribute vec4 Style;
 
 uniform vec4 Pretranslation;
 uniform mat4 Transform;
-uniform vec2 PixelScale;
-
-uniform mediump vec3 RenderParams;
-float antiAliasing = RenderParams.x;
-float rcpGammaIn = RenderParams.y;
-//-float rcpGammaOut = RenderParams.z;
-
 
 //! JSREQUIRE ol.renderer.replay.webgl.geom.LineStringsBatcher
 //! JSCONST CTRL_LINE_CENTER   ol.renderer.replay.webgl.geom.LineStringsBatcher.SurfaceFlags.CENTER.toFixed(1)
@@ -132,7 +129,7 @@ void main(void) {
     gl_Position = Transform * rteDecode(Position0, Pretranslation);
 
     // Decode style
-    Color = vec4(decodeRGB(Style.y), Style.z);
+    Color = vec4(applyGamma(decodeRGB(Style.y), rcpGammaIn), Style.z);
     float extent = Style.x + antiAliasing * 0.5; // half the smoothing counts
     Surface.z = -1.0 / extent; // negative scale for Surface.x
     float rcpMiterLimit = Style.w;
@@ -149,13 +146,10 @@ void main(void) {
 
 //! FRAGMENT
 
-
-uniform vec3 RenderParams;
-float antiAliasing = RenderParams.x;
-float rcpGammaOut = RenderParams.z;
-
+uniform sampler2D Background;
 
 float blendCoeff(vec2 edge0, vec2 edge1, vec2 x) {
+
     vec2 weight = smoothstep(edge0, edge1, x);
     return max(weight.x, weight.y);
 }
@@ -169,6 +163,11 @@ void main(void) {
 
     vec2 negScale = vec2(Surface.z, -1.0 / antiAliasing);
     vec2 outerEdgeMin = vec2(1.0) + negScale * antiAliasing;
-    float alpha = Color.a  * (1.0 - blendCoeff(outerEdgeMin, vec2(1.0), dist));
-    gl_FragColor = vec4(Color.rgb, alpha);
+
+    gl_FragColor.rgb = Color.a < 1.0
+        ? mix(texture2D(Background, gl_FragCoord.xy * PixelScale * 0.5).rgb,
+              Color.rgb, Color.a)
+        : Color.rgb;
+
+    gl_FragColor.a = sqrt(1.0 - blendCoeff(outerEdgeMin, vec2(1.0), dist));
 }

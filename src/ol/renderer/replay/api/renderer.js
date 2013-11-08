@@ -27,6 +27,15 @@ ol.renderer.replay.api.Renderer.prototype.setParameter =
 
 
 /**
+ * Indicate the start of a layer with given opacity.
+ *
+ * @param {number=} opt_opacity Opacity.
+ */
+ol.renderer.replay.api.Renderer.prototype.beginLayer =
+    goog.abstractMethod;
+
+
+/**
  * Render a batch.
  * Prepares the batch for rendering if not done so, already.
  *

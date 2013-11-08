@@ -95,6 +95,13 @@ ol.renderer.replay.spi.Renderer.prototype.setParameter =
 /**
  * @inheritDoc
  */
+ol.renderer.replay.spi.Renderer.prototype.beginLayer =
+    goog.abstractMethod;
+
+
+/**
+ * @inheritDoc
+ */
 ol.renderer.replay.spi.Renderer.prototype.render =
     function(batch) {
 

@@ -106,12 +106,9 @@ ol.renderer.replay.webgl.geom.LineStringsRender.prototype.
   this.context.setCommonUniforms(
       locations.Transform, locations.Pretranslation, locations.PixelScale);
 
-  gl.uniform3f(locations.RenderParams,
+  gl.uniform2f(locations.RenderParams,
       /** @type {number} */ (params[ol.renderer.replay.
           api.Renderer.ParameterIndex.HINT_SMOOTH_PIXELS]),
       /** @type {number} */ (params[ol.renderer.replay.
-          webgl.Renderer.ExtraParameterIndex.RECIPROCAL_COLOR_INPUT_GAMMA]),
-      /** @type {number} */ (params[ol.renderer.replay.
-          webgl.Renderer.ExtraParameterIndex.RECIPROCAL_OUTPUT_GAMMA]));
-
+          webgl.Renderer.ExtraParameterIndex.RECIPROCAL_COLOR_INPUT_GAMMA]));
 };
