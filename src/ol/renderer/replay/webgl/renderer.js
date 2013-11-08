@@ -57,6 +57,7 @@ ol.renderer.replay.webgl.Renderer = function(renderCtors, gl) {
       ExtraParameterIndex.RTE_COORDINATE_TRANSFORM] = new Array(16);
   params[ol.renderer.replay.webgl.Renderer.
       ExtraParameterIndex.RTE_PRETRANSLATION] = new Array(6);
+
 };
 goog.inherits(
     ol.renderer.replay.webgl.Renderer,
@@ -125,7 +126,7 @@ ol.renderer.replay.webgl.Renderer.prototype.prepareBatch_ = function(batch) {
     if (! goog.isNull(batch.indexBuffer) && gl.isBuffer(batch.indexBuffer)) {
       gl.bindBuffer(goog.webgl.ELEMENT_ARRAY_BUFFER, batch.indexBuffer);
     } else {
-      batch.indexBuffer = this.createGlBuffer(
+      batch.indexBuffer = this.createGlBuffer_(
           goog.webgl.ELEMENT_ARRAY_BUFFER, batch.indices);
     }
   }
@@ -139,7 +140,7 @@ ol.renderer.replay.webgl.Renderer.prototype.prepareBatch_ = function(batch) {
           batch.vertices.subarray(batch.texRefOffset / 4));
     }
   } else {
-    batch.vertexBuffer = this.createGlBuffer(
+    batch.vertexBuffer = this.createGlBuffer_(
         goog.webgl.ARRAY_BUFFER, batch.vertices);
   }
 };
@@ -265,9 +266,9 @@ ol.renderer.replay.webgl.Renderer.prototype.unloadBatch =
  * @param {number} target GL target descriptor.
  * @param {Float32Array|Uint16Array} data Data as typed array.
  * @return {WebGLBuffer} GL buffer object.
- * @protected
+ * @private
  */
-ol.renderer.replay.webgl.Renderer.prototype.createGlBuffer =
+ol.renderer.replay.webgl.Renderer.prototype.createGlBuffer_ =
     function(target, data) {
 
   var gl = this.gl;
