@@ -7,6 +7,7 @@ goog.require('goog.vec.Mat4');
 goog.require('goog.webgl');
 goog.require('ol.Color');
 goog.require('ol.math');
+goog.require('ol.renderer.ImageManager');
 goog.require('ol.renderer.replay.api.Batch');
 goog.require('ol.renderer.replay.api.BatchBuilder');
 goog.require('ol.renderer.replay.api.Renderer');
@@ -79,6 +80,9 @@ ol.renderer.webgl.VectorLayer2 = function(mapRenderer, vectorLayer2) {
    */
   this.pointCollectionLocations_ = null;
 
+  // Load some images for testing
+  ol.renderer.ImageManager.getInstance().loadAtlasImage(
+      'data/ui-icons_222222_256x240.png', 16, 16, 'anonymous');
 };
 goog.inherits(ol.renderer.webgl.VectorLayer2, ol.renderer.webgl.Layer);
 
@@ -175,12 +179,12 @@ ol.renderer.webgl.VectorLayer2.prototype.renderFrame =
       -view2DState.center[1],
       0);
 
-  var pointCollections = vectorSource.getPointCollections();
-  if (pointCollections.length > 0) {
-    this.renderPointCollections(pointCollections);
-  }
+  //var pointCollections = vectorSource.getPointCollections();
+  //if (pointCollections.length > 0) {
+  //  this.renderPointCollections(pointCollections);
+  //}
 
-  var batchRenderer = this.prepareRenderer_();
+  var batchRenderer = this.prepareRenderer_(frameState);
 
   var batch = this.batch_;
   if (goog.isNull(batch)) {
@@ -191,9 +195,10 @@ ol.renderer.webgl.VectorLayer2.prototype.renderFrame =
     //   batchRenderer.unload(this.batch_);
     // }
 
-    var lineStrings = vectorSource.getLineStrings();
-    this.batchLineStrings_(lineStrings);
+    this.batchLineStrings_(vectorSource.getLineStrings());
     this.batchPolygons_();
+    this.batch2_ = this.batchBuilder_.releaseBatch();
+    this.batchPoints_(vectorSource.getPointCollections());
 
     batch = this.batchBuilder_.releaseBatch();
     this.batch_ = batch;
@@ -201,6 +206,8 @@ ol.renderer.webgl.VectorLayer2.prototype.renderFrame =
 
   // Render and forget the GL state (as there's rendering outside of it)
   batchRenderer.render(batch);
+  batchRenderer.beginLayer();
+  batchRenderer.render(this.batch2_);
   batchRenderer.flush();
 
   goog.vec.Mat4.makeIdentity(this.texCoordMatrix);
@@ -220,11 +227,12 @@ ol.renderer.webgl.VectorLayer2.prototype.renderFrame =
 
 
 /**
+ * @param {ol.FrameState} frameState FrameState.
  * @return {ol.renderer.replay.api.Renderer}
  * @private
  */
 ol.renderer.webgl.VectorLayer2.prototype.prepareRenderer_ =
-    function() {
+    function(frameState) {
 
   var mapRenderer = this.getWebGLMapRenderer();
   var gl = mapRenderer.getGL();
@@ -235,14 +243,15 @@ ol.renderer.webgl.VectorLayer2.prototype.prepareRenderer_ =
 
     batchRenderer =
         ol.renderer.replay.webgl.RendererFactory.getInstance().create(gl);
+
+    var fbDim = this.framebufferDimension_;
+    batchRenderer.setParameter(ol.renderer.replay.api.
+        Renderer.ParameterIndex.RESOLUTION, [fbDim, fbDim]);
+
     this.batchRenderer_ = batchRenderer;
   }
 
-  // Set parameters
-  var framebufDim = this.framebufferDimension_;
-  batchRenderer.setParameter(ol.renderer.replay.api.
-      Renderer.ParameterIndex.RESOLUTION, [framebufDim, framebufDim]);
-
+  // Set transform
   batchRenderer.setParameter(ol.renderer.replay.api.
       Renderer.ParameterIndex.COORDINATE_TRANSFORM, this.modelViewMatrix_);
 
@@ -259,7 +268,7 @@ ol.renderer.webgl.VectorLayer2.prototype.batchPolygons_ =
   // Set style
   // TODO Get style data and replace this hard-wired hack
   var fillColor = new ol.Color(0, 0, 255, 0.5);
-  var strokeWidth = 4.0; // pixels
+  var strokeWidth = 0.0; // pixels
   var strokeColor = new ol.Color(255, 255, 0, 1);
   var miterLimit = 2.0;
 
@@ -307,7 +316,40 @@ ol.renderer.webgl.VectorLayer2.prototype.batchLineStrings_ =
             collection.buf.getArray(),
             goog.object.getValues(collection.ends),
             width, color, miterLimit));
+  }
+};
 
+
+/**
+ * @param {Array.<ol.geom2.PointCollection>} points Point collections.
+ * @private
+ */
+ol.renderer.webgl.VectorLayer2.prototype.batchPoints_ =
+    function(points) {
+
+  var imageId = 126;
+  var rotation = 0.0;
+  var opacity = 0.5;
+
+  var i, collection;
+  for (i = 0; i < points.length; ++i) {
+    collection = points[i];
+    goog.asserts.assert(collection.dim == 2);
+
+    //this.batchBuilder_.addGeometries(
+    //    new ol.renderer.replay.input.SimilarPoints(
+    //        collection.buf.getArray(), imageId, rotation, opacity));
+
+    var dataIn = collection.buf.getArray();
+    var dataOut = [];
+    for (var j = 0, n = dataIn.length; j < n; j += 2) {
+
+      dataOut.push(dataIn[j], dataIn[j + 1],
+          imageId + (j % 30), rotation + j * 0.001, opacity);
+    }
+
+    this.batchBuilder_.addGeometries(
+        new ol.renderer.replay.input.Points(dataOut));
   }
 };
 

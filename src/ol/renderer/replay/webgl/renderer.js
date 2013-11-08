@@ -143,12 +143,21 @@ ol.renderer.replay.webgl.Renderer.prototype.prepareBatch_ = function(batch) {
   var gl = this.gl;
 
   var remap = ol.renderer.ImageManager.
-      getInstance().requireImageSet(batch.imageSet);
-
+      getInstance().requireImageSet(batch.imageSet), offs, last;
   if (! goog.isNull(remap)) {
-    var vertices = batch.vertices;
-    for (var i = batch.texRefOffset, e = vertices.length; i < e; ++i) {
-      vertices[i] = remap[vertices[i]];
+    var vertices = batch.vertices, remapped;
+
+    var i, e;
+    for (offs = batch.texRefOffset / 4, last = vertices.length - 1;
+        offs <= last && ! (vertices[offs] in remap); ++offs) {
+      // empty, just seek to first affected index
+    }
+    for (i = offs, e = last; i <= e; ++i) {
+      remapped = remap[vertices[i]];
+      if (goog.isDef(remapped)) {
+        vertices[i] = remapped;
+        last = i;
+      }
     }
   }
 
@@ -165,9 +174,11 @@ ol.renderer.replay.webgl.Renderer.prototype.prepareBatch_ = function(batch) {
     gl.bindBuffer(goog.webgl.ARRAY_BUFFER, batch.vertexBuffer);
 
     if (! goog.isNull(remap)) {
+      goog.asserts.assert(goog.isDef(offs) && goog.isDef(last));
+
       gl.bufferSubData(
-          goog.webgl.ARRAY_BUFFER, batch.texRefOffset,
-          batch.vertices.subarray(batch.texRefOffset / 4));
+          goog.webgl.ARRAY_BUFFER, offs * 4,
+          batch.vertices.subarray(offs, last + 1));
     }
   } else {
     batch.vertexBuffer = this.createGlBuffer_(
@@ -359,5 +370,43 @@ ol.renderer.replay.webgl.Renderer.prototype.setCommonUniforms =
     gl.uniform2fv(opt_pixelScale,
         /** @type {Array.<number>} */ (params[ol.renderer.replay.
             webgl.Renderer.ExtraParameterIndex.NDC_PIXEL_SIZE]));
+  }
+};
+
+
+/**
+ * Bind atlas textures from the image manager to consecutive texture units
+ * and corresponding sampler uniforms.
+ *
+ * @param {...WebGLUniformLocation} var_args Sampler uniforms.
+ */
+ol.renderer.replay.webgl.Renderer.prototype.configureAtlasTextures =
+    function(var_args) {
+
+  var gl = this.gl, i = 0, e,
+      textures = ol.renderer.ImageManager.getInstance().getAtlasImages();
+
+  this.textureCache_.protectFromHere();
+
+  // Reverse iteration to be a good neighbor and end with TEXTURE0 active
+
+  // Unbind unused texture units
+  for (i = arguments.length, e = textures.length; --i >= e;) {
+    gl.activeTexture(goog.webgl.TEXTURE0 + i);
+    this.textureCache_.unbindTexture();
+  }
+  // Bind used texture units
+  for (i = textures.length; --i >= 0;) {
+    gl.activeTexture(goog.webgl.TEXTURE0 + i);
+    this.textureCache_.bindTexture(textures[0]);
+  }
+  // Set sampler uniforms
+  for (i = arguments.length; --i >= 0;) {
+    var uniformLocation = arguments[i];
+    gl.uniform1i(uniformLocation, i);
+
+    goog.asserts.assert(
+        i >= textures.length || ! goog.isNull(uniformLocation),
+        'Render ignores nonempty texture slot');
   }
 };

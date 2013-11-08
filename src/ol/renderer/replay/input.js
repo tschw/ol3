@@ -12,24 +12,18 @@ goog.require('ol.renderer.replay.spi.Geometries');
  * @extends {ol.renderer.replay.spi.Geometries}
  * @param {ol.renderer.replay.api.Numbers} coords
  *    Flat array of 2D coordinates.
- * @param {number} imageId Identifies the image and its dimensions.
- * @param {number} centerX X component of the image center.
- * @param {number} centerY Y component of the image center.
+ * @param {number} imageId Identification of the image.
  * @param {number} rotation Amount of rotation, negative values
  *      describe absolute rotation.
  * @param {number} opacity Opacity.
  */
 ol.renderer.replay.input.SimilarPoints =
-    function(coords, imageId, centerX, centerY, rotation, opacity) {
+    function(coords, imageId, rotation, opacity) {
 
   /** @type {ol.renderer.replay.api.Numbers} */
   this.coords = this.trackTransferable(coords);
   /** @type {number} */
   this.imageId = imageId;
-  /** @type {number} */
-  this.centerX = centerX;
-  /** @type {number} */
-  this.centerY = centerY;
   /** @type {number} */
   this.rotation = rotation;
   /** @type {number} */
