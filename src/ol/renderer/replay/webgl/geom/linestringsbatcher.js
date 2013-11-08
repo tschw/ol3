@@ -1,5 +1,6 @@
 goog.provide('ol.renderer.replay.webgl.geom.LineStringsBatcher');
 
+goog.require('goog.vec.Vec2');
 goog.require('ol.renderer.replay.input');
 goog.require('ol.renderer.replay.webgl.Batcher');
 goog.require('ol.renderer.replay.webgl.geom.gpuData');
@@ -22,6 +23,27 @@ ol.renderer.replay.webgl.geom.LineStringsBatcher = function() {
 goog.inherits(
     ol.renderer.replay.webgl.geom.LineStringsBatcher,
     ol.renderer.replay.webgl.Batcher);
+
+
+/**
+ * Maximum square length of line segments.
+ *
+ * @type {number}
+ * @const
+ * @private
+ */
+ol.renderer.replay.webgl.geom.LineStringsBatcher.MAX_SQR_LEN_ = 10e13;
+
+
+/**
+ * Index where to reconfigure the vertex buffer.
+ * Value leaves some space so we do not have to check at line ends.
+ *
+ * @type {number}
+ * @const
+ * @private
+ */
+ol.renderer.replay.webgl.geom.LineStringsBatcher.HIGH_INDEX_ = 65500;
 
 
 /**
@@ -60,39 +82,52 @@ ol.renderer.replay.webgl.geom.LineStringsBatcher.prototype.encodeGeometries =
     if (coords[offset] == coords[last] &&
         coords[offset + 1] == coords[last + 1]) {
 
-      i = ol.renderer.replay.webgl.geom.LineStringsBatcher.
-          linearRingImpl_(vertices, indices, coords, offset, last, i);
+      this.context.nextVertexIndex = i;
+
+      ol.renderer.replay.webgl.geom.
+          LineStringsBatcher.linearRing(this.context, coords, offset, last);
+
+      i = this.context.nextVertexIndex;
       continue;
     }
 
-    // Vertex data
+    // Vertices, line start:
+    //
     //   (B) |A| [A]  B   C   D ... for line start
     //
     // Notation: ( ) Sentinel   | | Terminal   [ ] Start/end
-    ol.renderer.replay.webgl.geom.gpuData.emitVertexGroup(
-        vertices, terminal, coords, offset + 2);
+    //
+    //   (B) |A|
+    ol.renderer.replay.webgl.geom.LineStringsBatcher.
+        emitSentinel_(vertices, coords, offset, offset + 2);
     ol.renderer.replay.webgl.geom.gpuData.emitVertexGroup(
         vertices, terminal, coords, offset);
-    //   ...
-    ol.renderer.replay.webgl.geom.gpuData.emitVertexGroups(
-        vertices, segment, coords, offset, 2, end);
+    // Indices, line start:
+    //   |A|=[A]
+    ol.renderer.replay.webgl.geom.gpuData.emitQuad(
+        indices, i, i + 1, i + 8, i + 9);
+
+    // Vertices & indices, segments:
+    //   [A]==B==C=...=X==Y==
+    i = ol.renderer.replay.webgl.geom.LineStringsBatcher.emitLineSegments_(
+        this.context, coords, offset, 2, last, i + 5);
+    //   [Z]
+    ol.renderer.replay.webgl.geom.gpuData.emitVertexGroup(
+        vertices, segment, coords, last);
+
+    // Vertices, line ending:
+    //
     //   ... W   X   Y  [Z] |Z| (Y) for line end
+    //
+    //  |Z| (Y)
     ol.renderer.replay.webgl.geom.gpuData.emitVertexGroup(
         vertices, terminal, coords, last);
-    ol.renderer.replay.webgl.geom.gpuData.emitVertexGroup(
-        vertices, terminal, coords, last - 2);
-
-    // Index data
-    //   |A|=[A]=
-    ol.renderer.replay.webgl.geom.gpuData.emitQuadIndices(
-        indices, i, i + 1, i + 8, i + 9);
-    ol.renderer.replay.webgl.geom.gpuData.emitQuadIndices(
-        indices, i + 8, i + 9, i + 10, i + 11);
-    //  B==C==...==X==Y==
-    i = ol.renderer.replay.webgl.geom.LineStringsBatcher.
-        emitLineSegmentsIndices_(indices, i + 10, nCoords - 2, 5);
-    //  [Z]=|Z|
-    ol.renderer.replay.webgl.geom.gpuData.emitQuadIndices(
+    ol.renderer.replay.webgl.geom.LineStringsBatcher.
+        emitSentinel_(vertices, coords, last, last - 2);
+    // Indices, line ending:
+    //
+    //   [Z]=|Z|
+    ol.renderer.replay.webgl.geom.gpuData.emitQuad(
         indices, i, i + 1, i + 8, i + 9);
 
     i += 4 * 5;
@@ -103,22 +138,29 @@ ol.renderer.replay.webgl.geom.LineStringsBatcher.prototype.encodeGeometries =
 
 
 /**
+ * Temporary to store encoded style when invoked externally.
+ *
+ * @type {Array.<number>}
+ * @private
+ */
+ol.renderer.replay.webgl.geom.LineStringsBatcher.tmpStyle_ = new Array(4);
+
+
+/**
  * Prepare the given context for line rendering.
  * This method is intended to be used from other Batchers.
  * @param {ol.renderer.replay.webgl.BatchBuilder} context
  * @param {ol.Color} color
  * @param {number} width
  * @param {number} miterLimit
- * @param {Array.<number>=} opt_tmpArray Array to be used
- *    to encode the style to avoid allocation.
  */
 ol.renderer.replay.webgl.geom.LineStringsBatcher.prepareSetStyle =
-    function(context, color, width, miterLimit, opt_tmpArray) {
+    function(context, color, width, miterLimit) {
 
   context.selectType(/** @type {?} */(
       ol.renderer.replay.input.LineStrings.prototype.typeId));
 
-  var style = opt_tmpArray || [];
+  var style = ol.renderer.replay.webgl.geom.LineStringsBatcher.tmpStyle_;
   ol.renderer.replay.webgl.geom.
       LineStringsBatcher.encodeStyle_(style, color, width, miterLimit);
   context.requestStyle(style);
@@ -137,10 +179,28 @@ ol.renderer.replay.webgl.geom.LineStringsBatcher.prepareSetStyle =
 ol.renderer.replay.webgl.geom.LineStringsBatcher.linearRing =
     function(context, coords, offset, end) {
 
-  context.nextVertexIndex =
-      ol.renderer.replay.webgl.geom.LineStringsBatcher.linearRingImpl_(
-          context.vertices, context.indices, coords, offset, end,
-          context.nextVertexIndex);
+  var segment =
+      ol.renderer.replay.webgl.geom.LineStringsBatcher.FLAGS_SEGMENT_;
+  var last = end - 2;
+  var i = context.nextVertexIndex;
+
+  // Vertex data: (>last, all, first, >second)
+
+  ol.renderer.replay.webgl.geom.LineStringsBatcher.
+      emitSentinel_(context.vertices, coords, offset, last);
+
+  i = ol.renderer.replay.webgl.geom.LineStringsBatcher.emitLineSegments_(
+      context, coords, offset, 2, last, i);
+  i = ol.renderer.replay.webgl.geom.LineStringsBatcher.emitLineSegments_(
+      context, coords, last, offset - last, offset, i);
+
+  ol.renderer.replay.webgl.geom.gpuData.emitVertexGroup(
+      context.vertices, segment, coords, offset);
+
+  ol.renderer.replay.webgl.geom.LineStringsBatcher.
+      emitSentinel_(context.vertices, coords, offset, offset + 2);
+
+  context.nextVertexIndex = 15 + i;
 };
 
 
@@ -162,64 +222,22 @@ ol.renderer.replay.webgl.geom.LineStringsBatcher.encodeStyle_ =
 
 
 /**
- * Generate vertex data for a linear ring from a range of input coordinates
- * stored in a flat array.
- *
- * @param {Array.<number>} vertices
- * @param {Array.<number>} indices
- * @param {ol.renderer.replay.api.Numbers} coords
- *    Flat array of 2D input coordinates.
- * @param {number} offset Start index in input array.
- * @param {number} end End index (exclusive).
- * @param {number} iBase Index of next vertex.
- * @return {number} Index of next vertex.
- * @private
- */
-ol.renderer.replay.webgl.geom.LineStringsBatcher.linearRingImpl_ =
-    function(vertices, indices, coords, offset, end, iBase) {
-
-  var segment =
-      ol.renderer.replay.webgl.geom.LineStringsBatcher.FLAGS_SEGMENT_;
-  var iStride = segment.length;
-
-  // Vertex data (last, all, first)
-  ol.renderer.replay.webgl.geom.gpuData.emitVertexGroup(
-      vertices, segment, coords, end - 2);
-  ol.renderer.replay.webgl.geom.gpuData.emitVertexGroups(
-      vertices, segment, coords, offset, 2, end);
-  ol.renderer.replay.webgl.geom.gpuData.emitVertexGroup(
-      vertices, segment, coords, offset);
-
-  // Index data
-  var nCoords = (end - offset) / 2;
-  ol.renderer.replay.webgl.geom.LineStringsBatcher.
-      emitLineSegmentsIndices_(indices, iBase, nCoords, iStride, iBase);
-
-  // Advance by nCoords coordinates plus two sentinels
-  return iBase + (nCoords + 2) * iStride;
-};
-
-
-/**
  * Edge control flags as processed by the vertex shader.
  * @enum {number}
  */
 ol.renderer.replay.webgl.geom.LineStringsBatcher.SurfaceFlags = {
 
-  // TODO tidy encoding
-
-  CENTER: 16,
+  OUTGOING: 1,
+  RIGHT: 2,
+  TERMINAL: 4,
+  CENTER: 8,
 
   IN_LEFT: 0,
-  IN_RIGHT: 4,
-  OUT_LEFT: 2,
-  OUT_RIGHT: 6,
+  IN_RIGHT: 2,
+  OUT_LEFT: 1,
+  OUT_RIGHT: 3,
 
-  OUTGOING: 2,
-  RIGHT: 4,
-  TERMINAL: 8,
-
-  UNREFERENCED: 36
+  UNREFERENCED: -1
 };
 
 
@@ -266,49 +284,172 @@ ol.renderer.replay.webgl.geom.LineStringsBatcher.FLAGS_TERMINAL_ = [
 
 
 /**
- * Emit indices for n line segments.
+ * Fetch a coordinate vector from an input array.
  *
- * @param {Array.<number>} indices Destination array.
- * @param {number} i First index to use.
- * @param {number} n Number of segments to emit.
- * @param {number} iStride Index stride.
- * @param {number=} opt_iNext Outgoing base index of last segment.
- * @return {number} Outgoing base index of last segment.
+ * @param {Array.<number>} dst Array number.
+ * @param {ol.renderer.replay.api.Numbers} coords
+ *    Flat array of 2D input coordinates.
+ * @param {number} offset Coordinate offset.
  * @private
  */
-ol.renderer.replay.webgl.geom.LineStringsBatcher.emitLineSegmentsIndices_ =
-    function(indices, i, n, iStride, opt_iNext) {
+ol.renderer.replay.webgl.geom.LineStringsBatcher.fetchCoord_ =
+    function(dst, coords, offset) {
 
-  var j;
+  goog.vec.Vec2.setFromValues(dst, coords[offset], coords[offset + 1]);
+};
 
-  while (--n > 0) {
 
-    j = i + iStride;
+/**
+ * Determine the number of segments to use for a line segment between
+ * two input vectors.
+ *
+ * @param {Array.<number>} a First 2D vector.
+ * @param {Array.<number>} b Second 2D vector.
+ * @return {number} Integer >= 1.
+ * @private
+ */
+ol.renderer.replay.webgl.geom.LineStringsBatcher.numberOfSegments_ =
+    function(a, b) {
 
-    // Push index data
-    indices.push(
-        i + 0, i + 2, i + 3,    // left triangle of bevel (one of those
-        i + 2, i + 1, i + 4,    // right triangle of bevel   two gets culled)
-        i + 3, i + 4, j,        // left triangle of quad
-        i + 4, j + 1, j);       // right triangle of quad
+  return Math.ceil(
+      Math.sqrt(goog.vec.Vec2.distanceSquared(a, b) /
+      ol.renderer.replay.webgl.geom.LineStringsBatcher.MAX_SQR_LEN_)) || 1;
+};
 
-    // Step to next
-    i = j;
+
+/**
+ * Temporary vector registers.
+ * @type {Array.<Array.<number>>}
+ * @private
+ */
+ol.renderer.replay.webgl.geom.LineStringsBatcher.vecRegs_ = [
+  [0, 0], [0, 0], [0, 0]
+];
+
+
+/**
+ * Emit sentinel vertex.
+ *
+ * @param {Array.<number>} vertices
+ * @param {ol.renderer.replay.api.Numbers} coords
+ *    Flat array of 2D input coordinates.
+ * @param {number} offset Start index in input array of near coordinate.
+ * @param {number} offsTowards Start index in input array of far coordinate.
+ * @private
+ */
+ol.renderer.replay.webgl.geom.LineStringsBatcher.emitSentinel_ =
+    function(vertices, coords, offset, offsTowards) {
+
+  var tmpRegs = ol.renderer.replay.webgl.geom.LineStringsBatcher.vecRegs_;
+  var a = tmpRegs[0], b = tmpRegs[1], c = tmpRegs[2];
+
+  ol.renderer.replay.webgl.geom.
+      LineStringsBatcher.fetchCoord_(a, coords, offset);
+  ol.renderer.replay.webgl.geom.
+      LineStringsBatcher.fetchCoord_(b, coords, offsTowards);
+
+  goog.vec.Vec2.lerp(a, b, 1 / ol.renderer.replay.webgl.geom.
+      LineStringsBatcher.numberOfSegments_(a, b), c);
+
+  ol.renderer.replay.webgl.geom.gpuData.emitVertexGroup(vertices,
+      ol.renderer.replay.webgl.geom.LineStringsBatcher.FLAGS_SEGMENT_, c, 0);
+};
+
+
+/**
+ * Emit vertices and indices for line segments, eventually subdividing or
+ * resetting the index range.
+ *
+ * This routine assumes there are vertices before and after its output,
+ * in particular:
+ *
+ * 1. The far end coordinate index must be properlydereferencable.
+ * 2. At most one vertex must be present in the output array.
+ * 3. The index returned is base index of the last referenced vertex
+ *    group - these vertices must be written by the client.
+ *
+ * @param {ol.renderer.replay.webgl.BatchBuilder} context
+ * @param {ol.renderer.replay.api.Numbers} coords
+ *    Flat array of 2D input coordinates.
+ * @param {number} offset Start index in input array.
+ * @param {number} stride Coordinate stride.
+ * @param {number} end End index (exclusive).
+ * @param {number} iBase Index of next vertex.
+ * @return {number} Index of next vertex.
+ * @private
+ */
+ol.renderer.replay.webgl.geom.LineStringsBatcher.emitLineSegments_ =
+    function(context, coords, offset, stride, end, iBase) {
+
+  var tmpRegs = ol.renderer.replay.webgl.geom.LineStringsBatcher.vecRegs_,
+      vertices = context.vertices, indices = context.indices,
+      segment =
+      ol.renderer.replay.webgl.geom.LineStringsBatcher.FLAGS_SEGMENT_;
+
+  var a = tmpRegs[0], b = tmpRegs[1], c = tmpRegs[2];
+
+  var nextOffs, nSegs, i, tmp;
+
+  ol.renderer.replay.webgl.geom.
+      LineStringsBatcher.fetchCoord_(a, coords, offset);
+
+  while (offset != end) {
+    nextOffs = offset + stride;
+
+    ol.renderer.replay.webgl.geom.
+        LineStringsBatcher.fetchCoord_(b, coords, nextOffs);
+
+    // Determine number of vertex groups to write for this coordinate
+    nSegs = ol.renderer.replay.webgl.geom.
+        LineStringsBatcher.numberOfSegments_(a, b);
+
+    for (i = 0; i < nSegs; ++i) {
+
+      goog.vec.Vec2.lerp(a, b, i / nSegs, c);
+
+      ol.renderer.replay.webgl.geom.
+          gpuData.emitVertexGroup(vertices, segment, c, 0);
+
+      if (iBase >=
+          ol.renderer.replay.webgl.geom.LineStringsBatcher.HIGH_INDEX_) {
+        // Index reset:
+        //
+        //    A=B=C [D]   vertices before reset
+        //    [B] C=D=E   vertices after reset (C gets index 0)
+
+        // Write [D]
+        goog.vec.Vec2.lerp(a, b, (i + 1) / nSegs, c);
+        ol.renderer.replay.webgl.geom.
+            gpuData.emitVertexGroup(vertices, segment, c, 0);
+
+        context.forceReconfigure();
+        iBase = 0;
+
+        // Repeat [B] and C
+        Array.prototype.push.apply(vertices,
+            vertices.slice(vertices.length - 75, vertices.length - 25));
+      }
+
+      // Write outgoing indices
+      if (i == 0) {
+        indices.push(
+            iBase + 0, iBase + 2, iBase + 3,  // left triangle of bevel
+            iBase + 2, iBase + 1, iBase + 4,  // right triangle of bevel
+            iBase + 3, iBase + 4, iBase + 5,  // left triangle of quad
+            iBase + 4, iBase + 6, iBase + 5); // right triangle of quad
+      } else {
+        indices.push(
+            iBase + 3, iBase + 4, iBase + 5,  // left triangle of quad
+            iBase + 4, iBase + 6, iBase + 5); // right triangle of quad
+      }
+      iBase += 5;
+    }
+
+    offset = nextOffs;
+
+    tmp = a;
+    a = b;
+    b = tmp;
   }
-  if (n == 0) {
-    // Determine next base index
-    // use 'iNext' as the last outgoing base index, if provided
-    j = goog.isDefAndNotNull(opt_iNext) ? opt_iNext : i + iStride;
-
-    // Push index data (same as above)
-    indices.push(
-        i + 0, i + 2, i + 3,    // left triangle of bevel (one of those
-        i + 2, i + 1, i + 4,    // right triangle of bevel   two gets culled)
-        i + 3, i + 4, j,        // left triangle of quad
-        i + 4, j + 1, j);       // right triangle of quad
-
-    i = j;
-  }
-
-  return i;
+  return iBase;
 };

@@ -49,18 +49,18 @@ vec2 lineExtrusion(out vec2 texCoord,
 
     vec2 dirIncoming = safeNormalized(coordHere - coordPrev);
     vec2 dirOutgoing = safeNormalized(coordNext - coordHere);
-    vec2 outward = safeNormalized(dirIncoming - dirOutgoing);
+    vec2 outward = safeNormalized(dirIncoming - dirOutgoing, rotatedCcw(dirIncoming));
 
-    float sinWinding = dot(
+    float sgnCosWinding = dot(
         rotatedCcw(dirIncoming),  // normal to the left of incoming leg
         outward);                 // vertex normal on the convex side
-    float sgnWinding = sign(sinWinding);
+    float sgnWinding = sign(sgnCosWinding);
 
-    float absSinWinding = sinWinding * sgnWinding;
-    float cosWinding = sqrt(1. - sinWinding * sinWinding);
+    float cosWinding = sgnCosWinding * sgnWinding;
+    float absSinWinding = sqrt(1. - sgnCosWinding * sgnCosWinding);
     float relativeMiterLimit = 1.0 / reciprocalRelativeMiterLimit;
-    float normBevelWidth = absSinWinding + relativeMiterLimit;
-    float cutWidth = length(vec2(normBevelWidth, cosWinding));
+    float normBevelWidth = cosWinding + relativeMiterLimit;
+    float cutWidth = length(vec2(normBevelWidth, absSinWinding));
 
     if (ctrl == CTRL_LINE_CENTER) {
         // Move the vertex inward and calculate texture coordinate
@@ -80,8 +80,8 @@ vec2 lineExtrusion(out vec2 texCoord,
         // The nonzero edge we see in this case is in opposite direction
         extent = -extent;
         // We're on a straight segment, force beveling logic (there is no
-        // bevel but 
-        absSinWinding = 0.0; 
+        // bevel but it will do the right thing) 
+        cosWinding = 0.0; 
     }
 
     if (ctrl >= CTRL_RIGHT_EDGE) {
@@ -94,12 +94,12 @@ vec2 lineExtrusion(out vec2 texCoord,
     vec2 legDir;
     float extraMove = 0.0;
     const float epsRadians = 0.000244140625;
-    if (absSinWinding < reciprocalRelativeMiterLimit) {
+    if (cosWinding < reciprocalRelativeMiterLimit) {
         // Bevel (miter too long)?
         legDir = ctrl == CTRL_OUTGOING_EDGE ? dirOutgoing : dirIncoming;
         result += extent * rotatedCcw(legDir);
 
-        if (texCoord.x == sgnWinding && absSinWinding > epsRadians) {
+        if (texCoord.x == sgnWinding && cosWinding > epsRadians) {
             // Unless at a line ending (this includes the vertices next
             // to the ones flagged as terminal), pull back the inner two
             // edges in order to expose the bevel triangle
@@ -108,12 +108,12 @@ vec2 lineExtrusion(out vec2 texCoord,
     } else 
     // ATTENTION: Don't remove the redunant "if", here! It's a workaround
     // for a vicious bug in ANGLE m)
-    if (absSinWinding >= reciprocalRelativeMiterLimit) {
+    if (cosWinding >= reciprocalRelativeMiterLimit) {
         // Miter
         legDir = rotatedCw(outward);
-        result += (extent / sinWinding) * outward;
+        result += (extent / sgnCosWinding) * outward;
 
-        if (absSinWinding > epsRadians) {
+        if (cosWinding > epsRadians) {
             // Cull triangles for bevel unless at line endings (there are
             // none in this case) to prevent flickering while avoiding to 
             // globally enforce invariance
