@@ -206,6 +206,11 @@ ol.renderer.replay.webgl.Renderer.prototype.render =
   /**
    * @type {number}
    */
+  this.indexBufferOffset = 0;
+
+  /**
+   * @type {number}
+   */
   this.texRefReadOffset = batch.texRefOffset;
 
   if (this.parametersChanged) {
@@ -228,7 +233,6 @@ ol.renderer.replay.webgl.Renderer.prototype.flush = function() {
     this.currentRender = null;
   }
 
-  this.indexBufferOffset = 0;
   this.currentProgram_ = null;
 };
 
